@@ -2,6 +2,7 @@
 import requests
 import sys
 import json
+import base64
 from datetime import datetime, timedelta
 import time
 import urllib.parse
@@ -99,13 +100,13 @@ def parse_expires_time(url):
         print(f"❌ Cannot get expires: {e}")
         return None
 
-def get_redirect_url():
-    url = sys.argv[1]
-    if "downloadCheck?" not in url:
-        print("Unsupported link or interface")
-        exit(1)
+def get_redirect_url(url, market_name):
+    extra_headers = {}
+    if market_name:
+        encoded = base64.b64encode(market_name.encode('utf-8')).decode('ascii')
+        extra_headers['marketName'] = encoded
 
-    response = android_request(url, 'GET', allow_redirects=False, timeout=10, max_retries=3)
+    response = android_request(url, 'GET', headers=extra_headers, allow_redirects=False, timeout=10, max_retries=3)
     
     if response and response.status_code == 302:
         redirect_url = response.headers.get('Location')
@@ -129,8 +130,11 @@ if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("URL is empty")
         exit(1)
+
+    url = sys.argv[1]
+    market_name = sys.argv[2] if len(sys.argv) >= 3 else ""
     
-    redirect_url = get_redirect_url()
+    redirect_url = get_redirect_url(url, market_name)
     
     if redirect_url:
         print("✅ DONE")
