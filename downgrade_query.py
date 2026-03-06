@@ -122,104 +122,106 @@ def main():
 
     print(f"Querying downgrade for {ota_version}\n")
 
-    session_key = os.urandom(32)
-    iv = os.urandom(12)
+    carriers = ["10010111", "10011000"]
 
-    payload = {
-        "model": model,
-        "nvCarrier": "10010111",
-        "prjNum": prj_num,
-        "serialNo": sn_num,
-        "otaVersion": ota_version
-    }
+    for idx, current_carrier in enumerate(carriers):
+        session_key = os.urandom(32)
+        iv = os.urandom(12)
 
-    try:
-        protected_key = get_protected_key(session_key)
-        encrypted_device_id_obj = encrypt_aes_gcm(duid, session_key, iv)
-        payload["deviceId"] = encrypted_device_id_obj
-    except Exception as e:
-        print(f"[!] Encryption Init Failed: {e}")
-        return
+        try:
+            protected_key = get_protected_key(session_key)
+            encrypted_device_id_obj = encrypt_aes_gcm(duid, session_key, iv)
+            
+            payload = {
+                "model": model,
+                "nvCarrier": current_carrier,
+                "prjNum": prj_num,
+                "serialNo": sn_num,
+                "otaVersion": ota_version,
+                "deviceId": encrypted_device_id_obj
+            }
 
-    cipher_info = {
-        "downgrade-server": {
-            "negotiationVersion": NEGOTIATION_VERSION,
-            "protectedKey": protected_key,
-            "version": str(int(time.time()))
-        }
-    }
+            cipher_info = {
+                "downgrade-server": {
+                    "negotiationVersion": NEGOTIATION_VERSION,
+                    "protectedKey": protected_key,
+                    "version": str(int(time.time()))
+                }
+            }
 
-    headers = {
-        "Host": "downgrade.coloros.com",
-        "Content-Type": "application/json; charset=UTF-8",
-        "cipherInfo": json.dumps(cipher_info),
-        "deviceId": duid,
-        "Connection": "keep-alive"
-    }
+            headers = {
+                "Host": "downgrade.coloros.com",
+                "Content-Type": "application/json; charset=UTF-8",
+                "cipherInfo": json.dumps(cipher_info),
+                "deviceId": duid,
+                "Connection": "close"
+            }
 
-    try:
-        resp = requests.post(URL, headers=headers, json=payload, timeout=20, verify=False)
+            resp = requests.post(URL, headers=headers, json=payload, timeout=20, verify=False)
 
-        if resp.status_code == 200:
-            resp_json = resp.json()
+            if resp.status_code == 200:
+                resp_json = resp.json()
+                
+                if isinstance(resp_json, dict) and resp_json.get('code') == 1004:
+                    print("DUID query GUID is empty")
+                    return
 
-            if isinstance(resp_json, dict) and resp_json.get('code') == 1004:
-                print("DUID query GUID is empty")
-                return
+                final_data = None
+                if "cipher" in resp_json:
+                    decrypted_bytes = decrypt_aes_gcm(resp_json["cipher"], resp_json["iv"], session_key)
+                    if decrypted_bytes:
+                        try: final_data = json.loads(decrypted_bytes)
+                        except: pass
+                else:
+                    final_data = resp_json
 
-            final_data = None
-            if "cipher" in resp_json:
-                decrypted_bytes = decrypt_aes_gcm(resp_json["cipher"], resp_json["iv"], session_key)
-                if decrypted_bytes:
-                    try:
-                        final_data = json.loads(decrypted_bytes)
-                    except:
-                        pass
-            else:
-                final_data = resp_json
+                if final_data:
+                    has_data = False
+                    if "data" in final_data and final_data["data"]:
+                        pkg_list = final_data["data"].get("downgradeVoList")
+                        if pkg_list:
+                            has_data = True
+                            for i, pkg in enumerate(pkg_list):
+                                print("Fetch Info:")
+                                print(f"• Link: {pkg.get('downloadUrl', 'N/A')}")
+                                print(f"• Changelog: {pkg.get('versionIntroduction', 'N/A')}")
+                                print(f"• Version: {pkg.get('colorosVersion', '')} ({pkg.get('androidVersion', '')})")
+                                print(f"• Ota Version: {pkg.get('otaVersion', 'N/A')}")
+                                print(f"• MD5: {pkg.get('fileMd5', 'N/A')}")
+                                file_size = pkg.get('fileSize')
+                                if file_size is not None:
+                                    try:
+                                        size_mb = int(file_size) / 1024 / 1024
+                                        print(f"• File Size: {file_size} Byte ({size_mb:.0f}M)")
+                                    except: print(f"• File Size: {file_size} Byte (N/A)")
+                                else: print("• File Size: N/A")
+                                if i < len(pkg_list) - 1 or debug: print()
 
-            if final_data:
-                has_data = False
-                if "data" in final_data and final_data["data"]:
-                    pkg_list = final_data["data"].get("downgradeVoList")
-                    if pkg_list:
-                        has_data = True
-                        for i, pkg in enumerate(pkg_list):
-                            print("Fetch Info:")
-                            print(f"• Link: {pkg.get('downloadUrl', 'N/A')}")
-                            print(f"• Changelog: {pkg.get('versionIntroduction', 'N/A')}")
-                            print(f"• Version: {pkg.get('colorosVersion', '')} ({pkg.get('androidVersion', '')})")
-                            print(f"• Ota Version: {pkg.get('otaVersion', 'N/A')}")
-                            print(f"• MD5: {pkg.get('fileMd5', 'N/A')}")
-
-                            # Safely handle fileSize
-                            file_size = pkg.get('fileSize')
-                            if file_size is not None:
-                                try:
-                                    size_bytes = int(file_size)
-                                    size_mb = size_bytes / 1024 / 1024
-                                    print(f"• File Size: {size_bytes} Byte ({size_mb:.0f}M)")
-                                except (ValueError, TypeError):
-                                    print(f"• File Size: {file_size} Byte (N/A)")
-                            else:
-                                print("• File Size: N/A")
-
-                            if i < len(pkg_list) - 1 or debug:
-                                print()
-
-                if debug == 1 and has_data and final_data['data'].get('metaData'):
-                    metadata = final_data['data']['metaData']
-                    print("Metadata:")
-                    print(metadata)
-
-                if not has_data:
+                            if debug == 1 and final_data['data'].get('metaData'):
+                                print(f"Metadata:\n{final_data['data']['metaData']}")
+                            
+                            return
+                            
+                    if idx == 0:
+                        time.sleep(1)
+                        continue
+                    else:
+                        print("No Downgrade Package")
+                else:
                     print("No Downgrade Package")
+            
             else:
-                print("No Downgrade Package")
-        else:
-            print(f"[!] Server returned HTTP {resp.status_code}")
-    except Exception as e:
-        print(f"[!] Network Error: {e}")
+                if idx == 0:
+                    time.sleep(1)
+                    continue
+                print(f"[!] Server returned HTTP {resp.status_code}")
+
+        except Exception as e:
+            if idx == 0: 
+                time.sleep(1.5)
+                continue
+            print(f"[!] Error: {e}")
+            break
 
 if __name__ == "__main__":
     try:

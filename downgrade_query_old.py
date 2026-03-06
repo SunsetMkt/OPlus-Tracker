@@ -9,8 +9,6 @@ import os
 import json
 import base64
 import time
-import argparse
-from datetime import datetime
 from typing import Dict, Optional
 
 import requests
@@ -21,11 +19,9 @@ from cryptography.hazmat.backends import default_backend
 
 # --- Configuration ---
 
-# API URL
 URL = "https://downgrade.coloros.com/downgrade/query-v2"
 NEGOTIATION_VERSION = 1636449646204
 
-# Public Key (Key Index 2)
 REAL_PUB_KEY = """-----BEGIN PUBLIC KEY-----
 MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAmeQzr0TIbtwZFnDXgatg
 6xP9SlNBFho1NTdFQ27SKDF+dBEEfnG9BqRw0na0DUqtpWe2CUtldbU33nnJ0KB6
@@ -39,9 +35,7 @@ rwIDAQAB
 # --- Crypto Helpers ---
 
 def get_protected_key(session_key_bytes: bytes) -> str:
-    """Encrypt SessionKey using RSA-OAEP-SHA1 (SessionKey must be Base64 encoded first)"""
     pub_key = serialization.load_pem_public_key(REAL_PUB_KEY.encode(), backend=default_backend())
-    # Critical Step: SessionKey -> Base64 -> RSA Encrypt
     rsa_input = base64.b64encode(session_key_bytes)
     encrypted_bytes = pub_key.encrypt(
         rsa_input,
@@ -50,7 +44,6 @@ def get_protected_key(session_key_bytes: bytes) -> str:
     return base64.b64encode(encrypted_bytes).decode()
 
 def encrypt_aes_gcm(plaintext: str, key: bytes, iv: bytes) -> Dict[str, str]:
-    """Encrypt data using AES-256-GCM"""
     encryptor = Cipher(algorithms.AES(key), modes.GCM(iv), backend=default_backend()).encryptor()
     ciphertext = encryptor.update(plaintext.encode()) + encryptor.finalize()
     return {
@@ -59,14 +52,13 @@ def encrypt_aes_gcm(plaintext: str, key: bytes, iv: bytes) -> Dict[str, str]:
     }
 
 def decrypt_aes_gcm(cipher_b64: str, iv_b64: str, key: bytes) -> Optional[bytes]:
-    """Decrypt data using AES-256-GCM"""
     try:
         full_cipher = base64.b64decode(cipher_b64)
         iv = base64.b64decode(iv_b64)
         tag, ciphertext = full_cipher[-16:], full_cipher[:-16]
         decryptor = Cipher(algorithms.AES(key), modes.GCM(iv, tag), backend=default_backend()).decryptor()
         return decryptor.update(ciphertext) + decryptor.finalize()
-    except Exception as e:
+    except Exception:
         return None
 
 def print_usage():
@@ -81,7 +73,6 @@ def print_usage():
 # --- Main Logic ---
 
 def main():
-    # 1. Argument Validation
     if len(sys.argv) != 3:
         print_usage()
         sys.exit(1)
@@ -89,113 +80,116 @@ def main():
     ota_version = sys.argv[1].upper()
     prj_num = sys.argv[2]
 
-    # Validate Argument 1: OTA Prefix (Must have '_')
     if "_11." not in ota_version:
         ota_version = ota_version + "_11.A"
 
-    # Validate Argument 2: PrjNum (Must be 5 digits)
     if not prj_num.isdigit() or len(prj_num) != 5:
         print(f"\n❌ Error: Argument 2 (PrjNum) '{prj_num}' must be exactly 5 digits.")
         sys.exit(1)
     
-    # Extract model from OTA prefix
     model = ota_version.split("_")[0]
     duid = "0" * 64
-
-    # Suppress SSL warnings
     requests.packages.urllib3.disable_warnings()
 
     print(f"Querying downgrade for {ota_version}\n")
 
-    # Generate session keys
-    session_key = os.urandom(32)
-    iv = os.urandom(12)
+    carriers = ["10010111", "10011000"]
 
-    # Build request payload
-    payload = {
-        "model": model,
-        "nvCarrier": "10010111",
-        "prjNum": prj_num,
-        "otaVersion": ota_version
-    }
+    for idx, current_carrier in enumerate(carriers):
+        session_key = os.urandom(32)
+        iv = os.urandom(12)
 
-    try:
-        # Encrypt Header Key
-        protected_key = get_protected_key(session_key)
-        # Encrypt DeviceID in Body
-        encrypted_device_id_obj = encrypt_aes_gcm(duid, session_key, iv)
-        payload["deviceId"] = encrypted_device_id_obj
-    except Exception as e:
-        print(f"[!] Encryption Init Failed: {e}")
-        return
+        try:
+            protected_key = get_protected_key(session_key)
+            encrypted_device_id_obj = encrypt_aes_gcm(duid, session_key, iv)
+            
+            payload = {
+                "model": model,
+                "nvCarrier": current_carrier,
+                "prjNum": prj_num,
+                "otaVersion": ota_version,
+                "deviceId": encrypted_device_id_obj
+            }
 
-    cipher_info = {
-        "downgrade-server": {
-            "negotiationVersion": NEGOTIATION_VERSION,
-            "protectedKey": protected_key,
-            "version": str(int(time.time()))
-        }
-    }
+            cipher_info = {
+                "downgrade-server": {
+                    "negotiationVersion": NEGOTIATION_VERSION,
+                    "protectedKey": protected_key,
+                    "version": str(int(time.time()))
+                }
+            }
 
-    headers = {
-        "Host": "downgrade.coloros.com",
-        "Content-Type": "application/json; charset=UTF-8",
-        "cipherInfo": json.dumps(cipher_info),
-        "deviceId": duid,
-        "Connection": "keep-alive"
-    }
+            headers = {
+                "Host": "downgrade.coloros.com",
+                "Content-Type": "application/json; charset=UTF-8",
+                "cipherInfo": json.dumps(cipher_info),
+                "deviceId": duid,
+                "Connection": "close"
+            }
 
-    # Send Request
-    try:
-        resp = requests.post(URL, headers=headers, json=payload, timeout=20, verify=False)
+            resp = requests.post(URL, headers=headers, json=payload, timeout=20, verify=False)
 
-        if resp.status_code == 200:
-            resp_json = resp.json()
+            if resp.status_code == 200:
+                resp_json = resp.json()
 
-            # Handle Decryption
-            final_data = None
-            if "cipher" in resp_json:
-                decrypted_bytes = decrypt_aes_gcm(resp_json["cipher"], resp_json["iv"], session_key)
-                if decrypted_bytes:
-                    try:
-                        final_data = json.loads(decrypted_bytes)
-                    except:
-                        pass
-            else:
-                final_data = resp_json
+                final_data = None
+                if "cipher" in resp_json:
+                    decrypted_bytes = decrypt_aes_gcm(resp_json["cipher"], resp_json["iv"], session_key)
+                    if decrypted_bytes:
+                        try:
+                            final_data = json.loads(decrypted_bytes)
+                        except: pass
+                else:
+                    final_data = resp_json
 
-            # Parse and Format Output
-            if final_data:
-                has_data = False
-                if "data" in final_data and final_data["data"]:
-                    pkg_list = final_data["data"].get("downgradeVoList")
-                    if pkg_list:
-                        has_data = True
-                        for i, pkg in enumerate(pkg_list):
+                if final_data:
+                    has_data = False
+                    if "data" in final_data and final_data["data"]:
+                        pkg_list = final_data["data"].get("downgradeVoList")
+                        if pkg_list:
+                            has_data = True
+                            for i, pkg in enumerate(pkg_list):
+                                print("Fetch Info:")
+                                print(f"• Link: {pkg.get('downloadUrl', 'N/A')}")
+                                print(f"• Changelog: {pkg.get('versionIntroduction', 'N/A')}")
+                                print(f"• Version: {pkg.get('colorosVersion', '')} ({pkg.get('androidVersion', '')})")
+                                print(f"• Ota Version: {pkg.get('otaVersion', 'N/A')}")
+                                print(f"• MD5: {pkg.get('fileMd5', 'N/A')}")
+                                
+                                file_size = pkg.get('fileSize')
+                                if file_size is not None:
+                                    try:
+                                        size_mb = float(file_size) / 1024 / 1024
+                                        print(f"• File Size: {file_size} Byte ({size_mb:.0f}M)")
+                                    except:
+                                        print(f"• File Size: {file_size} Byte (N/A)")
+                                else:
+                                    print("• File Size: N/A")
 
-                            print("Fetch Info:")
-                            print(f"• Link: {pkg.get('downloadUrl', 'N/A')}")
-                            print(f"• Changelog: {pkg.get('versionIntroduction', 'N/A')}")
-                            print(f"• Version: {pkg.get('colorosVersion', '')} ({pkg.get('androidVersion', '')})")
-                            print(f"• Ota Version: {pkg.get('otaVersion', 'N/A')}")
-                            print(f"• MD5: {pkg.get('fileMd5', 'N/A')}")
-                            print(f"• File Size: {pkg.get('fileSize', 'N/A')} Byte ({pkg.get('fileSize')/1024/1024:.0f}M)")
-
-                            # Add blank line between packages
-                            if i < len(pkg_list) - 1:
-                                print()
-
-                if not has_data:
+                                if i < len(pkg_list) - 1:
+                                    print()
+                            
+                            return
+                            
+                    if idx == 0:
+                        time.sleep(1)
+                        continue
+                    else:
+                        print("No Downgrade Package")
+                else:
                     print("No Downgrade Package")
             else:
-                # Decryption failed or empty response
-                print("No Downgrade Package")
+                if idx == 0:
+                    time.sleep(1)
+                    continue
+                print(f"[!] Server returned HTTP {resp.status_code}")
 
-        else:
-            print(f"[!] Server returned HTTP {resp.status_code}")
-
-    except Exception as e:
-        print(f"[!] Network Error: {e}")
+        except Exception as e:
+            if idx == 0:
+                time.sleep(1.2)
+                continue
+            print(f"[!] Network Error: {e}")
+            break
 
 if __name__ == "__main__":
     try:
