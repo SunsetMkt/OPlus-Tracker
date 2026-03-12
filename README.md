@@ -51,13 +51,11 @@ Main advanced OTA query tool — supports full ROM, delta updates, gray channel,
 - Modes: `manual`, `client_auto`, `server_auto`, `taste`
 - `--anti 1` bypass for ColorOS 16 restricted models
 - Delta OTA via `--components`
-- Google Server Firmware Query (`--fingerprint`)
 
 ### Dependencies
 ```text
 requests
 cryptography
-protobuf   (optional — only for --fingerprint mode)
 ```
 
 ```bash
@@ -84,7 +82,6 @@ python tomboy_pro.py <OTA_PREFIX> <REGION> [options]
 | `--guid 64hex`    | 64-char device GUID                              | Required for pre/taste               |
 | `--components`    | Delta query (name:fullversion,...)               | `--components System:PJX110_11...`   |
 | `--anti 1`        | Bypass ColorOS 16 query restriction (~Oct 2025)  | Usually + `--mode taste`             |
-| `--fingerprint`   | Use Google OTA Server instead                    | OxygenOS / US variant useful         |
 
 **Examples**
 ```bash

@@ -25,7 +25,6 @@ from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
-from google.protobuf import text_format
 
 PUBLIC_KEYS = {
     "cn": """-----BEGIN RSA PUBLIC KEY-----
@@ -86,14 +85,6 @@ REGION_CONFIG = {
 
 SUPPORTED_MODES = ["manual", "client_auto", "server_auto", "taste"]
 
-try:
-    from checkin_generator_pb2 import (
-        AndroidBuildProto, AndroidCheckinProto, AndroidCheckinRequest, AndroidCheckinResponse
-    )
-    HAS_PROTOBUF = True
-except ImportError:
-    HAS_PROTOBUF = False
-
 @dataclass
 class ComponentInfo:
     name: str
@@ -137,7 +128,6 @@ class QueryConfig:
     genshin: str = "0"
     pre: str = "0"
     custom_language: Optional[str] = None
-    fingerprint: Optional[str] = None
     serial: Optional[str] = None
     imei: Optional[str] = None
 
@@ -254,116 +244,6 @@ def get_redirect_url(url: str, max_retries: int = 3) -> str:
                 return url
             time.sleep(2 * (attempt + 1))
     return url
-
-class GoogleCheckinProber:
-    def __init__(self):
-        if not HAS_PROTOBUF:
-            raise ImportError("Protobuf modules not available.")
-        self.checkinproto = AndroidCheckinProto()
-        self.payload = AndroidCheckinRequest()
-        self.build = AndroidBuildProto()
-        self.response = AndroidCheckinResponse()
-    
-    def _safe_decode(self, value_bytes: bytes) -> str:
-        try:
-            return value_bytes.decode('utf-8')
-        except UnicodeDecodeError:
-            try:
-                return value_bytes.hex()
-            except Exception:
-                return f"<binary data: {len(value_bytes)} bytes>"
-
-    def parse_all_settings(self, setting_entries) -> Dict[str, str]:
-        all_settings = {}
-        for entry in setting_entries:
-            try:
-                name = entry.name.decode('utf-8', errors='ignore')
-                all_settings[name] = self._safe_decode(entry.value)
-            except Exception as e:
-                all_settings[str(entry.name)] = str(entry.value)
-        return all_settings
-    
-    def checkin(self, fingerprint: str, model: str = None,
-                serial: str = None, imei: str = None) -> Tuple[Optional[str], Optional[str], Optional[str], Dict]:
-        temp_file = 'temp_checkin_data.gz'
-        try:
-            parts = fingerprint.split('/')
-            if len(parts) < 5: raise ValueError("Invalid fingerprint")
-            
-            temp = parts[2].split(':')
-            device = temp[0]
-            android_version = parts[3]
-            current_build = parts[4]
-
-        except Exception:
-            print("Invalid fingerprint format.")
-            return None, None, None, {}
-        
-        model = model or device
-        serial = serial or generate_serial()
-        imei = imei or generate_imei()
-        
-        headers = {
-            'accept-encoding': 'gzip, deflate',
-            'content-encoding': 'gzip',
-            'content-type': 'application/x-protobuffer',
-            'user-agent': f'Dalvik/2.1.0 (Linux; U; Android {android_version}; {model} Build/{current_build})'
-        }
-
-        self.build.id = fingerprint
-        self.build.timestamp = 0
-        self.build.device = device
-        
-        self.checkinproto.Clear()
-        self.checkinproto.build.CopyFrom(self.build)
-        self.checkinproto.lastCheckinMsec = 0
-        self.checkinproto.roaming = "WIFI::"
-        self.checkinproto.userNumber = 0
-        self.checkinproto.deviceType = 2
-        self.checkinproto.voiceCapable = False
-        self.checkinproto.unknown19 = "WIFI"
-
-        self.payload.Clear()
-        self.payload.imei = imei
-        self.payload.id = 0
-        self.payload.digest = generate_digest()
-        self.payload.checkin.CopyFrom(self.checkinproto)
-        self.payload.locale = 'en-US'
-        self.payload.macAddr.append(generate_mac())
-        self.payload.timeZone = 'America/New_York'
-        self.payload.version = 3
-        self.payload.serialNumber = serial
-        self.payload.macAddrType.append('wifi')
-        self.payload.fragment = 0
-        self.payload.userSerialNumber = 0
-        self.payload.fetchSystemUpdates = 1
-        self.payload.unknown30 = 0
-
-        try:
-            with gzip.open(temp_file, 'wb') as f_out:
-                f_out.write(self.payload.SerializeToString())
-            
-            with open(temp_file, 'rb') as post_data:
-                r = requests.post('https://android.googleapis.com/checkin', 
-                                 data=post_data, headers=headers, timeout=30)
-            
-            self.response.ParseFromString(r.content)
-            
-            all_settings = self.parse_all_settings(self.response.setting)
-            return (all_settings.get('update_title', ''), 
-                    all_settings.get('update_url', ''), 
-                    all_settings.get('update_size', 'N/A'), 
-                    all_settings)
-            
-        except (requests.exceptions.SSLError, requests.exceptions.ConnectionError):
-            print("Checkin failed: Network/Proxy Error (Unable to connect to Google)")
-            return None, None, None, {}
-        except Exception as e:
-            print(f"Checkin failed: {str(e)}")
-            return None, None, None, {}
-        finally:
-            if os.path.exists(temp_file):
-                os.remove(temp_file)
 
 def process_ota_version(ota_prefix: str, region: str, genshin: str, pre: str, custom_model: Optional[str]) -> Tuple[str, str]:
     parts = ota_prefix.split("_")
@@ -660,11 +540,6 @@ def parse_args():
     valid_regions = [r for r in REGION_CONFIG.keys() if r not in ["sg_host", "cn_gray"]]
     parser.add_argument("region", nargs="?", type=str.lower, choices=valid_regions, help="Region code")
     
-    group_chk = parser.add_argument_group("Checkin Options")
-    group_chk.add_argument("--fingerprint", help="Google Checkin Fingerprint")
-    group_chk.add_argument("--serial", default=generate_serial(), help="Device Serial")
-    group_chk.add_argument("--imei", default=generate_imei(), help="Device IMEI")
-    
     group_ota = parser.add_argument_group("OTA Options")
     group_ota.add_argument("--model", help="Custom model")
     group_ota.add_argument("--mode", choices=SUPPORTED_MODES, default="manual")
@@ -678,11 +553,8 @@ def parse_args():
     
     args = parser.parse_args()
     
-    if args.fingerprint:
-        if not args.ota_prefix: args.ota_prefix = "unknown"
-    else:
-        if not args.ota_prefix or not args.region:
-            parser.error("ota_prefix and region are required if not using fingerprint")
+    if not args.ota_prefix or not args.region:
+        parser.error("ota_prefix and region are required")
     
     if args.pre == "1" and args.guid == "0"*64:
         parser.error("GUID required for pre mode")
@@ -697,31 +569,8 @@ def main():
             ota_version=args.ota_prefix, model=args.model or "unknown", region=args.region,
             gray=args.gray, mode=args.mode, guid=args.guid, components_input=args.components,
             anti=args.anti, has_custom_model=bool(args.model), genshin=args.genshin, pre=args.pre,
-            custom_language=args.custom_language,
-            fingerprint=args.fingerprint, serial=args.serial, imei=args.imei
+            custom_language=args.custom_language
         )
-
-        if args.fingerprint:
-            prober = GoogleCheckinProber()
-            print(f"Querying Google API with fingerprint")
-            print(f"Device Model: {args.model or 'From Fingerprint'}\n")
-            title, url, size, _ = prober.checkin(args.fingerprint, args.model,  args.serial, args.imei)
-            
-            if title:
-                title = title.replace(" is available", "")
-
-            print("Fetch Info:")
-            if url:
-                print(f"• Link: {url}")
-            else:
-                print(f"• Link: N/A")
-            
-            if title:
-                print(f"• Version: {title}")
-            else:
-                print(f"• Version: N/A")
-            print(f"• Size: {size}")
-            return
 
         ota_upper = args.ota_prefix.upper().replace("OVT", "Ovt")
         processed_ota, processed_model = process_ota_version(
