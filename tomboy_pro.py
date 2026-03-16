@@ -134,8 +134,7 @@ class QueryConfig:
     genshin: str = "0"
     pre: str = "0"
     custom_language: Optional[str] = None
-    serial: Optional[str] = None
-    imei: Optional[str] = None
+    nvid: Optional[str] = None
 
 def generate_imei():
     return ''.join(map(str, [random.randint(0, 9) for _ in range(15)]))
@@ -281,6 +280,7 @@ def process_ota_version(ota_prefix: str, region: str, genshin: str, pre: str, cu
 
 def build_request_headers(config: QueryConfig, region_config: Dict, device_id: str, protected_key: str) -> Dict:
     lang = config.custom_language or region_config["language"]
+    carrier_id = config.nvid if config.nvid else region_config["carrier_id"] 
     return {
         "language": lang,
         "newLanguage": lang,
@@ -291,7 +291,7 @@ def build_request_headers(config: QueryConfig, region_config: Dict, device_id: s
         "otaVersion": config.ota_version,
         "model": config.model,
         "mode": config.mode,
-        "nvCarrier": region_config["carrier_id"],
+        "nvCarrier": carrier_id,
         "pipelineKey": "ALLNET",
         "operator": "ALLNET",
         "companyId": "",
@@ -556,6 +556,7 @@ def parse_args():
     group_ota.add_argument("--guid", default="0"*64, help="Device GUID")
     group_ota.add_argument("--components", help="Custom components (name:version)")
     group_ota.add_argument("--anti", type=int, choices=[0, 1], default=0, help="Anti mode")
+    group_ota.add_argument("--nvid", type=str, help="Custom NV Carrier ID (8 digits)")
     
     args = parser.parse_args()
     
@@ -564,6 +565,10 @@ def parse_args():
     
     if args.pre == "1" and args.guid == "0"*64:
         parser.error("GUID required for pre mode")
+        
+    if args.nvid:
+        if not (args.nvid.isdigit() and len(args.nvid) == 8):
+            parser.error("--nvid must be exactly 8 digits")
         
     return args
 
@@ -575,7 +580,8 @@ def main():
             ota_version=args.ota_prefix, model=args.model or "unknown", region=args.region,
             gray=args.gray, mode=args.mode, guid=args.guid, components_input=args.components,
             anti=args.anti, has_custom_model=bool(args.model), genshin=args.genshin, pre=args.pre,
-            custom_language=args.custom_language
+            custom_language=args.custom_language,
+            nvid=args.nvid
         )
 
         ota_upper = args.ota_prefix.upper().replace("OVT", "Ovt")
