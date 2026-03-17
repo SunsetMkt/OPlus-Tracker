@@ -7,6 +7,7 @@ Designed by Jerry Tse (Adapted)
 import sys
 import re
 import json
+import argparse
 import requests
 
 def extract_url_from_link(link_str: str) -> str:
@@ -65,27 +66,24 @@ def format_output(data: dict) -> None:
                 print(tips_content)
             first_printed = False
 
-def print_usage():
-    """Display usage information."""
-    print("\nUsage:")
-    print(f"  python3 {sys.argv[0]} <OTA_Prefix>")
-    print("\nConstraints:")
-    print("  <OTA_Prefix> : Must contain exactly two underscores (e.g., PHN110_11.H.19_3190)")
-    print("\nExample:")
-    print(f"  python3 {sys.argv[0]} PHN110_11.H.19_3190")
-
 def main():
-    if len(sys.argv) != 2:
-        print_usage()
-        sys.exit(1)
+    parser = argparse.ArgumentParser(
+        description='ColorOS Update Log Query Tool',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Example:
+  python3 %(prog)s PHN110_11.H.19_3190
+"""
+    )
+    parser.add_argument('ota_prefix', metavar='OTA_Prefix',
+                        help='OTA prefix containing exactly two underscores (e.g., PHN110_11.H.19_3190)')
+    args = parser.parse_args()
 
-    version_prefix = sys.argv[1]
+    version_prefix = args.ota_prefix
 
     # Validate exactly two underscores
     if version_prefix.count('_') != 2:
-        print(f"\n❌ Error: OTA_Prefix '{version_prefix}' must contain exactly two underscores.")
-        print_usage()
-        sys.exit(1)
+        parser.error(f"OTA_Prefix '{version_prefix}' must contain exactly two underscores.")
 
     # Extract model (part before first underscore)
     model = version_prefix.split('_')[0]

@@ -2,6 +2,7 @@
 # Designed by Jerry Tse
 import sys
 import re
+import argparse
 import requests
 import os
 from concurrent.futures import ThreadPoolExecutor
@@ -17,18 +18,28 @@ def check_url(url):
         pass
 
 def main():
-    if len(sys.argv) != 4:
-        print("Usage: python3 script.py <VERSION_NAME> <REGION> <DATE>")
-        print("Example: ~/venv/bin/python realme_edl_query.py \"RMX3888_16.0.3.500(CN01)\" CN 202601241320")
-        return
+    parser = argparse.ArgumentParser(
+        description='Realme EDL Query Tool',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Example:
+  python3 %(prog)s "RMX3888_16.0.3.500(CN01)" CN 202601241320
+"""
+    )
+    parser.add_argument('version_name', metavar='VERSION_NAME',
+                        help='Version name (e.g., RMX3888_16.0.3.500(CN01))')
+    parser.add_argument('region', metavar='REGION',
+                        help='Region code (e.g., CN, EU, IN)')
+    parser.add_argument('date', metavar='DATE',
+                        help='12-character date prefix (e.g., 202601241320)')
+    args = parser.parse_args()
 
-    VERSION_NAME = sys.argv[1]
-    REGION = sys.argv[2].upper()
-    DATE_PREFIX = sys.argv[3]
-    
+    VERSION_NAME = args.version_name
+    REGION = args.region.upper()
+    DATE_PREFIX = args.date
+
     if len(DATE_PREFIX) != 12:
-        print(f"\n❌ Error: Argument 4 (Date) length is {len(DATE_PREFIX)}, expected 12 characters.")
-        sys.exit(1)
+        parser.error(f"Date length is {len(DATE_PREFIX)}, expected 12 characters.")
 
     if REGION in ("EU", "EUEX", "EEA", "TR"):
         BUCKET, SERVER = "GDPR", "rms01.realme.net"

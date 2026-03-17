@@ -9,6 +9,7 @@ import os
 import json
 import base64
 import time
+import argparse
 from typing import Dict, Optional
 
 import requests
@@ -61,61 +62,43 @@ def decrypt_aes_gcm(cipher_b64: str, iv_b64: str, key: bytes) -> Optional[bytes]
     except Exception:
         return None
 
-def print_usage():
-    print("\nUsage:")
-    print(f"  python3 {sys.argv[0]} <OTA_Prefix> <PrjNum> <snNum> <DUID> [--debug 0|1]")
-    print("\nConstraints:")
-    print("  <OTA_Prefix> : Must contain at least one '_' (e.g., PKX110_11.C)")
-    print("  <PrjNum>     : Must be exactly 5 digits (e.g., 24821)")
-    print("  <snNum>      : SN Number from device (e.g., a1b2c3d4)")
-    print("  <DUID>       : Must be a 64-character SHA256 string (get from *#6776#)")
-    print("\nOptions:")
-    print("  --debug 0|1  : Enable (1) or disable (0) debug output (prints metadata if available)")
-    print("\nExamples:")
-    print(f"  python3 {sys.argv[0]} PKX110_11.C 24821 a1b2c3d4 498A44DF1BEC4EB19FBCB3A870FCACB4EC7D424979CC9C517FE7B805A1937746")
-    print(f"  python3 {sys.argv[0]} PKX110_11.C 24821 a1b2c3d4 498A44DF1BEC4EB19FBCB3A870FCACB4EC7D424979CC9C517FE7B805A1937746 --debug 1")
-
-# --- Main Logic ---
-
 def main():
-    # Argument parsing: support 5 args (no debug) or 7 args (with --debug value)
-    if len(sys.argv) not in (5, 7):
-        print_usage()
-        sys.exit(1)
+    parser = argparse.ArgumentParser(
+        description='ColorOS Downgrade Query Tool',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  python3 %(prog)s PKX110_11.C 24821 a1b2c3d4 498A44DF1BEC4EB19FBCB3A870FCACB4EC7D424979CC9C517FE7B805A1937746
+  python3 %(prog)s PKX110_11.C 24821 a1b2c3d4 498A44DF1BEC4EB19FBCB3A870FCACB4EC7D424979CC9C517FE7B805A1937746 --debug 1
+"""
+    )
+    parser.add_argument('ota_prefix', metavar='OTA_Prefix',
+                        help='OTA prefix containing "_11." (e.g., PKX110_11.C)')
+    parser.add_argument('prj_num', metavar='PrjNum',
+                        help='Project number, exactly 5 digits (e.g., 24821)')
+    parser.add_argument('sn_num', metavar='snNum',
+                        help='SN number from device (e.g., a1b2c3d4)')
+    parser.add_argument('duid', metavar='DUID',
+                        help='64-character SHA256 DUID string (get from *#6776#)')
+    parser.add_argument('--debug', type=int, choices=[0, 1], default=0,
+                        help='Enable (1) or disable (0) debug output (default: 0)')
+    args = parser.parse_args()
 
-    debug = 0
-    if len(sys.argv) == 7:
-        if sys.argv[5] != "--debug":
-            print(f"\n❌ Error: Expected '--debug' at position 5, got '{sys.argv[5]}'")
-            print_usage()
-            sys.exit(1)
-        debug_value = sys.argv[6]
-        if debug_value not in ("0", "1"):
-            print(f"\n❌ Error: --debug value must be 0 or 1, got '{debug_value}'")
-            sys.exit(1)
-        debug = int(debug_value)
-        ota_version = sys.argv[1].upper()
-        prj_num = sys.argv[2]
-        sn_num = sys.argv[3]
-        duid = sys.argv[4]
-    else:  # 5 args
-        ota_version = sys.argv[1].upper()
-        prj_num = sys.argv[2]
-        sn_num = sys.argv[3]
-        duid = sys.argv[4]
+    debug = args.debug
+    ota_version = args.ota_prefix.upper()
+    prj_num = args.prj_num
+    sn_num = args.sn_num
+    duid = args.duid
 
     # Validate arguments
     if "_11." not in ota_version:
-        print(f"\n❌ Error: Argument 1 (OTA_Prefix) '{ota_version}' must contain an underscore '_'.")
-        sys.exit(1)
+        parser.error(f"OTA_Prefix '{ota_version}' must contain '_11.' (e.g., PKX110_11.C).")
 
     if not prj_num.isdigit() or len(prj_num) != 5:
-        print(f"\n❌ Error: Argument 2 (PrjNum) '{prj_num}' must be exactly 5 digits.")
-        sys.exit(1)
+        parser.error(f"PrjNum '{prj_num}' must be exactly 5 digits.")
 
     if len(duid) != 64:
-        print(f"\n❌ Error: Argument 3 (DUID) length is {len(duid)}, expected 64 characters.")
-        sys.exit(1)
+        parser.error(f"DUID length is {len(duid)}, expected 64 characters.")
 
     model = ota_version.split("_")[0]
     requests.packages.urllib3.disable_warnings()

@@ -9,6 +9,7 @@ import os
 import json
 import base64
 import time
+import argparse
 from typing import Dict, Optional
 
 import requests
@@ -61,31 +62,29 @@ def decrypt_aes_gcm(cipher_b64: str, iv_b64: str, key: bytes) -> Optional[bytes]
     except Exception:
         return None
 
-def print_usage():
-    print("\nUsage:")
-    print(f"  python3 {sys.argv[0]} <OTA_Prefix> <PrjNum>")
-    print("\nConstraints:")
-    print("  <OTA_Prefix> : Must contain at least one '_' (e.g., PKX110_11.C)")
-    print("  <PrjNum>     : Must be exactly 5 digits (e.g., 24821)")
-    print("\nExample:")
-    print(f"  python3 {sys.argv[0]} PKX110_11.C 24821")
-
-# --- Main Logic ---
-
 def main():
-    if len(sys.argv) != 3:
-        print_usage()
-        sys.exit(1)
+    parser = argparse.ArgumentParser(
+        description='ColorOS Downgrade Query Tool',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Example:
+  python3 %(prog)s PKX110_11.C 24821
+"""
+    )
+    parser.add_argument('ota_prefix', metavar='OTA_Prefix',
+                        help='OTA prefix containing an underscore (e.g., PKX110_11.C)')
+    parser.add_argument('prj_num', metavar='PrjNum',
+                        help='Project number, exactly 5 digits (e.g., 24821)')
+    args = parser.parse_args()
 
-    ota_version = sys.argv[1].upper()
-    prj_num = sys.argv[2]
+    ota_version = args.ota_prefix.upper()
+    prj_num = args.prj_num
 
     if "_11." not in ota_version:
         ota_version = ota_version + "_11.A"
 
     if not prj_num.isdigit() or len(prj_num) != 5:
-        print(f"\n❌ Error: Argument 2 (PrjNum) '{prj_num}' must be exactly 5 digits.")
-        sys.exit(1)
+        parser.error(f"PrjNum '{prj_num}' must be exactly 5 digits.")
     
     model = ota_version.split("_")[0]
     duid = "0" * 64
