@@ -7,6 +7,7 @@ Designed by Jerry Tse
 import sys
 import re
 import json
+import argparse
 import requests
 
 REGION_CONFIG = {
@@ -138,56 +139,40 @@ def format_output(data: dict, region: str) -> None:
                 print(tips_content)
             first_printed = True
 
-def print_usage():
-    available = ", ".join(sorted(VALID_REGIONS))
-    print("\nUsage:")
-    print(f"  python3 {sys.argv[0]} <OTA_Prefix> <region> [--pre 0|1]")
-    print("\nConstraints:")
-    print("  <OTA_Prefix> : Must contain exactly two underscores (e.g., PHN110_11.H.19_3190)")
-    print(f"  <region>     : One of: {available}")
-    print("  --pre        : Optional. Controls whether version string contains 'PRE'.")
-    print("                 - 1: Ensure version string includes PRE (add if missing)")
-    print("                 - 0: Ensure version string does NOT include PRE (strip if present)")
-    print("                 If omitted, version string is used as provided (PRE preserved if present).")
-    print("\nExample:")
-    print(f"  python3 {sys.argv[0]} PHN110_11.H.19_3190 cn")
-    print(f"  python3 {sys.argv[0]} PLP110PRE_11.A.01_0010 cn --pre 1")
-    print(f"  python3 {sys.argv[0]} PLP110_11.A.01_0010 cn --pre 1")
-
 def main():
-    # Parse arguments
-    args = sys.argv[1:]
-    pre_flag = None
+    parser = argparse.ArgumentParser(
+        description='ColorOS Update Log Query Tool',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Example:
+  python3 %(prog)s PHN110_11.H.19_3190
+"""
+    )
+    parser.add_argument('ota_prefix', metavar='OTA_Prefix',
+                        help='OTA prefix containing exactly two underscores (e.g., PHN110_11.H.19_3190)')
+    
+    parser.add_argument('region', choices=sorted(VALID_REGIONS), help='Region code')
+    parser.add_argument(
+        '--pre',
+        type=int,
+        choices=[0, 1],
+        default=None,
+        help=(
+            "Controls whether version string contains 'PRE'.\n"
+            "  1: Ensure version string includes PRE (add if missing)\n"
+            "  0: Ensure version string does NOT include PRE (strip if present)\n"
+            "  If omitted, version string is used as provided."
+        )
+    )
+    args = parser.parse_args()
 
-    i = 0
-    while i < len(args):
-        if args[i] == '--pre':
-            if i + 1 >= len(args):
-                print("❌ Error: --pre requires a value (0 or 1)")
-                sys.exit(1)
-            val = args[i+1]
-            if val not in ('0', '1'):
-                print("❌ Error: --pre value must be 0 or 1")
-                sys.exit(1)
-            pre_flag = int(val)
-            # Remove --pre and its value
-            del args[i:i+2]
-            break
-        i += 1
-
-    # Now args should contain exactly two positional arguments
-    if len(args) != 2:
-        print_usage()
-        sys.exit(1)
-
-    version_prefix = args[0].upper()
-    region = args[1].lower()
+    version_prefix = args.ota_prefix.upper()
+    region = args.region.lower()
+    pre_flag = args.pre
 
     # Validate exactly two underscores in the original prefix
     if version_prefix.count('_') != 2:
-        print(f"\n❌ Error: OTA_Prefix '{version_prefix}' must contain exactly two underscores.")
-        print_usage()
-        sys.exit(1)
+        parser.error(f"OTA_Prefix '{version_prefix}' must contain exactly two underscores.")
 
     # Validate region
     if region not in VALID_REGIONS:

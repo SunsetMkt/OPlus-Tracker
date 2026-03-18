@@ -3,6 +3,7 @@ import requests
 import sys
 import json
 import base64
+import argparse
 from datetime import datetime, timedelta
 import time
 import urllib.parse
@@ -126,14 +127,22 @@ def get_redirect_url(url, market_name):
         return None
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description='C16 URL Transfer Tool',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Example:
+  python3 %(prog)s <URL> [market_name]
+"""
+    )
+    parser.add_argument('url', help='URL to resolve')
+    parser.add_argument('market_name', nargs='?', default='',
+                        help='Optional market name')
+    args = parser.parse_args()
 
-    if len(sys.argv) < 2:
-        print("URL is empty")
-        exit(1)
+    url = args.url
+    market_name = args.market_name
 
-    url = sys.argv[1]
-    market_name = sys.argv[2] if len(sys.argv) >= 3 else ""
-    
     redirect_url = get_redirect_url(url, market_name)
     
     if redirect_url:
