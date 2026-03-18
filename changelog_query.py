@@ -40,6 +40,49 @@ def extract_url_from_link(link_str: str) -> str:
     match = re.search(r'href\s*=\s*"([^"]+)"', link_str)
     return match.group(1) if match else link_str.strip()
 
+def process_version_prefix(orig_prefix: str, pre_flag: int = None):
+    """
+    Process the version prefix based on pre_flag.
+    Returns (model, adjusted_prefix) where:
+        - model: pure model name (without PRE) for headers
+        - adjusted_prefix: version string to use for full version (may include PRE based on flag)
+    pre_flag:
+        - None: keep original version string unchanged
+        - 0: ensure version string does NOT contain PRE (strip if present)
+        - 1: ensure version string contains PRE (add if absent)
+    """
+    parts = orig_prefix.split('_', 1)
+    if len(parts) != 2:
+        # Should not happen due to earlier validation
+        model_part = parts[0]
+        rest = ''
+    else:
+        model_part, rest = parts[0], '_' + parts[1]
+
+    # Pure model without PRE (always for headers)
+    pure_model = model_part.replace('PRE', '')
+
+    if pre_flag is None:
+        # Keep original version string unchanged
+        adjusted_prefix = orig_prefix
+    elif pre_flag == 1:
+        # Ensure version string contains PRE
+        if 'PRE' in model_part:
+            adjusted_prefix = orig_prefix  # already has PRE
+        else:
+            # Add PRE
+            new_model_part = model_part + 'PRE'
+            adjusted_prefix = new_model_part + rest
+    else:  # pre_flag == 0
+        # Ensure version string does NOT contain PRE
+        if 'PRE' in model_part:
+            # Remove PRE
+            adjusted_prefix = pure_model + rest
+        else:
+            adjusted_prefix = orig_prefix  # no PRE, keep as is
+
+    return pure_model, adjusted_prefix
+
 def format_output(data: dict, region: str) -> None:
     upg_inst_detail = data.get('upgInstDetail', [])
     if not upg_inst_detail:
@@ -54,7 +97,11 @@ def format_output(data: dict, region: str) -> None:
         if 'children' in item:
             if first_printed:
                 print()
+            first_child = True
             for child in item['children']:
+                if not first_child:
+                    print()  # blank line between child sections
+                first_child = False
                 title = child.get('title', '')
                 content_list = child.get('content', [])
                 if title:
@@ -105,28 +152,45 @@ Example:
                         help='OTA prefix containing exactly two underscores (e.g., PHN110_11.H.19_3190)')
     
     parser.add_argument('region', choices=sorted(VALID_REGIONS), help='Region code')
+    parser.add_argument(
+        '--pre',
+        type=int,
+        choices=[0, 1],
+        default=None,
+        help=(
+            "Controls whether version string contains 'PRE'.\n"
+            "  1: Ensure version string includes PRE (add if missing)\n"
+            "  0: Ensure version string does NOT include PRE (strip if present)\n"
+            "  If omitted, version string is used as provided."
+        )
+    )
     args = parser.parse_args()
 
-    version_prefix = args.ota_prefix
-    region = args.region
+    version_prefix = args.ota_prefix.upper()
+    region = args.region.lower()
+    pre_flag = args.pre
 
+    # Validate exactly two underscores in the original prefix
     if version_prefix.count('_') != 2:
         parser.error(f"OTA_Prefix '{version_prefix}' must contain exactly two underscores.")
 
+    # Validate region
     if region not in VALID_REGIONS:
         available = ", ".join(sorted(VALID_REGIONS))
         print(f"\n❌ Error: Invalid region '{region}'. Available regions: {available}")
         sys.exit(1)
 
-    model = version_prefix.split('_')[0]
+    # Process PRE handling
+    model, adjusted_prefix = process_version_prefix(version_prefix, pre_flag)
 
+    # Build configuration
     if region in ["cn", "cn_cmcc", "eu", "in"]:
         config = REGION_CONFIG[region]
     else:
         config = REGION_CONFIG["sg_host"].copy()
         config.update(REGION_CONFIG[region])
 
-    full_version = version_prefix + "_197001010000"
+    full_version = adjusted_prefix + "_197001010000"
 
     url = "https://" + config["host"] + "/descriptionInfo"
     headers = {

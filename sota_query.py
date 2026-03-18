@@ -84,7 +84,6 @@ def build_headers(aes_key: bytes, public_key: str, config: Dict[str, str], is_up
     # Base headers
     headers = {
         "language": "zh-CN",
-        "newLanguage": "zh-CN",
         "colorOSVersion": config["coloros"],
         "androidVersion": "unknown",
         "infVersion": "1",
@@ -92,9 +91,6 @@ def build_headers(aes_key: bytes, public_key: str, config: Dict[str, str], is_up
         "model": config["model"],
         "mode": "taste",
         "nvCarrier": "10010111",
-        "pipelineKey": "ALLNET",
-        "operator": "ALLNET",
-        "companyId": "",
         "brand": config["brand"],
         "brandSota": config["brand"],
         "osType": "domestic_" + config["brand"],
@@ -372,11 +368,10 @@ def print_formatted_output(sota_version: str, formatted_lines: List[str]):
 def main(args):
     """Main execution: run query, then update, then format output"""
 
-    if not all([args.model, args.brand, args.ota_version, args.current_sota, 
-                args.coloros]):
+    if not all([args.brand, args.ota_version, args.current_sota, args.coloros]):
         print("❌ Error: All parameters are required")
         print("\nUsage Example:")
-        print("  python3 sota_query.py --model PJX110 --brand OnePlus \\")
+        print("  python3 sota_query.py --brand OnePlus \\")
         print("                       --ota-version PJX110_11.F.13_2130_202512181912 \\")
         print("                       --current-sota \"V80P02(BRB1CN01)\" \\")
         print("                       --coloros ColorOS16.0.0 \\")
@@ -384,9 +379,9 @@ def main(args):
 
     # Create config dictionary from args
     config = {
-        "model": args.model,
         "brand": args.brand,
         "ota_version": args.ota_version,
+        "model": args.ota_version.split('_')[0],
         "current_sota": args.current_sota,
         "coloros": args.coloros,
         "rom_version": "unknown"
@@ -420,7 +415,7 @@ def parse_args():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Usage Example:
-  python3 %(prog)s --model PJX110 --brand OnePlus \\
+  python3 %(prog)s --brand OnePlus \\
                    --ota-version PJX110_11.F.13_2130_202512181912 \\
                    --current-sota "V80P02(BRB1CN01)" \\
                    --coloros ColorOS16.0.0 \\"
@@ -428,7 +423,6 @@ Usage Example:
     )
     
     # All parameters are required
-    parser.add_argument('--model', required=True, help='Device model (e.g., PJX110)')
     parser.add_argument('--brand', required=True, help='Device brand (e.g., OnePlus, OPPO)')
     parser.add_argument('--ota-version', required=True, help='OTA version (e.g., PJX110_11.F.13_2130_202512181912)')
     parser.add_argument('--current-sota', required=True, help='Current SOTA version on device (e.g., V80P02(BRB1CN01))')
@@ -440,7 +434,7 @@ Usage Example:
     except SystemExit:
         # Show usage example before exiting
         print("\nUsage Example:")
-        print("  python3 sota_query.py --model PJX110 --brand OnePlus \\")
+        print("  python3 sota_query.py --brand OnePlus \\")
         print("                       --ota-version PJX110_11.F.13_2130_202512181912 \\")
         print("                       --current-sota \"V80P02(BRB1CN01)\" \\")
         print("                       --coloros ColorOS16.0.0 \\")
