@@ -60,16 +60,7 @@ def generate_random_string(length: int = 64) -> str:
 def generate_random_bytes(length: int) -> bytes:
     return os.urandom(length)
 
-def replace_gauss_url(url: str) -> str:
-    if not url or url == "N/A":
-        return url
-    return url.replace(
-        "https://gauss-otacostauto-cn.allawnfs.com/",
-        "https://gauss-componentotacostmanual-cn.allawnfs.com/"
-    )
-
 def parse_os_version(os_version_str: str) -> str:
-    if not os_version_str: return "ColorOS7"
     match = re.search(r'^(\d+)(?:\.(\d+)(?:\.(\d+))?)?$', os_version_str.strip())
     if match:
         return f"ColorOS{match.group(1)}.{match.group(2) or '0'}.{match.group(3) or '0'}"
@@ -163,9 +154,10 @@ def query_opex(ota_version: str, os_version: str, brand: str) -> None:
             
             headers = build_headers(ota_version, model, os_version, brand, device_id, protected_key_str)
             raw_payload = {
-                "mode": "0", "time": int(time.time() * 1000), "isRooted": "0", "isLocked": True,
-                "type": "0", "deviceId": device_id, "opex": {"check": True},
-                "businessList": [], "otaVersion": ota_version
+                "mode": "0",
+                "time": int(time.time() * 1000),
+                "businessList": [],
+                "otaVersion": ota_version
             }
             
             payload_str = json.dumps(raw_payload)
@@ -217,7 +209,7 @@ def process_result(body: Dict):
     raw_data = body.get("data")
     opex_list = []
     ver_name = "N/A"
-    
+
     if isinstance(raw_data, list):
         opex_packages = raw_data
         ver_name = body.get("opexVersionName", "N/A")
@@ -236,7 +228,7 @@ def process_result(body: Dict):
                 version_name=ver_name,
                 business_code=pkg.get("businessCode", "N/A"),
                 zip_hash=info.get("zipHash", "N/A"),
-                auto_url=replace_gauss_url(info.get("autoUrl", "N/A"))
+                auto_url=info.get("autoUrl", "N/A")
             ))
 
     if opex_list:
