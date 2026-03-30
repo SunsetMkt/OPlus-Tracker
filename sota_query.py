@@ -144,7 +144,7 @@ def execute_query_request(config: Dict[str, str]) -> Tuple[Optional[Dict[str, An
         },
         "sota": {
             "sotaProtocolVersion": "2",
-            "sotaVersion": config["current_sota"],
+            "sotaVersion": "V69P69",
             "otaUpdateTime": ota_update_time,
             "frameworkVer": "10",
             "supportLightH": "1",
@@ -239,7 +239,7 @@ def execute_update_request(query_result: Dict[str, Any], config: Dict[str, str])
     body = {
         "sotaProtocolVersion": "2",
         "sotaProtocolVersionNew": ["apk", "opex", "rus"],
-        "sotaVersion": config["current_sota"],  # Current version on device
+        "sotaVersion": "V69P69",
         "updateViaReboot": 2,
         "supportLightH": "1",
         "moduleMap": {
@@ -368,12 +368,11 @@ def print_formatted_output(sota_version: str, formatted_lines: List[str]):
 def main(args):
     """Main execution: run query, then update, then format output"""
 
-    if not all([args.brand, args.ota_version, args.current_sota, args.coloros]):
+    if not all([args.brand, args.ota_version, args.coloros]):
         print("❌ Error: All parameters are required")
         print("\nUsage Example:")
         print("  python3 sota_query.py --brand OnePlus \\")
         print("                       --ota-version PJX110_11.F.13_2130_202512181912 \\")
-        print("                       --current-sota \"V80P02(BRB1CN01)\" \\")
         print("                       --coloros ColorOS16.0.0 \\")
         return
 
@@ -382,13 +381,11 @@ def main(args):
         "brand": args.brand,
         "ota_version": args.ota_version,
         "model": args.ota_version.split('_')[0],
-        "current_sota": args.current_sota,
         "coloros": args.coloros,
         "rom_version": "unknown"
     }
     
     print(f"Device: {config['model']}")
-    print(f"Current SOTA: {config['current_sota']}")
     print(f"OS: {config['coloros'].replace('ColorOS', 'ColorOS ')}")
     print()
 
@@ -417,7 +414,6 @@ def parse_args():
 Usage Example:
   python3 %(prog)s --brand OnePlus \\
                    --ota-version PJX110_11.F.13_2130_202512181912 \\
-                   --current-sota "V80P02(BRB1CN01)" \\
                    --coloros ColorOS16.0.0 \\"
         """
     )
@@ -425,7 +421,6 @@ Usage Example:
     # All parameters are required
     parser.add_argument('--brand', required=True, help='Device brand (e.g., OnePlus, OPPO)')
     parser.add_argument('--ota-version', required=True, help='OTA version (e.g., PJX110_11.F.13_2130_202512181912)')
-    parser.add_argument('--current-sota', required=True, help='Current SOTA version on device (e.g., V80P02(BRB1CN01))')
     parser.add_argument('--coloros', required=True, help='ColorOS version (e.g., ColorOS16.0.0)')
     
     # Custom error handling to show usage example
@@ -436,7 +431,6 @@ Usage Example:
         print("\nUsage Example:")
         print("  python3 sota_query.py --brand OnePlus \\")
         print("                       --ota-version PJX110_11.F.13_2130_202512181912 \\")
-        print("                       --current-sota \"V80P02(BRB1CN01)\" \\")
         print("                       --coloros ColorOS16.0.0 \\")
         sys.exit(1)
 

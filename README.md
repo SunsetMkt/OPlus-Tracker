@@ -125,7 +125,14 @@ python opex_query.py RMX5200_11.A.63_... --info 16,realme
 Queries **SOTA** (Software OTA) — mainly for CN ColorOS System APPs updates.
 
 ### Usage
-All 5 parameters are **required** (see previous version for full example)
+```bash
+python sota_query.py --brand BRAND --ota-version OTA_VERSION --coloros COLOROS
+
+# Examples
+python sota_query.py --brand OnePlus --ota-version PJX110_11.F.15_2150_202602051458 --coloros ColorOS16.0.0
+```
+
+**Note**: All 3 parameters are **required** (check the example)
 
 ## `iot_query.py`
 
