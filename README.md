@@ -24,6 +24,7 @@ Current scripts:
 - `downgrade_query.py` → query official downgrade packages (CN only)
 - `realme_edl_query.py` → query official EDL packages for Realme
 - `changelog_query.py` → query specific version changelog
+- `config.py`      → configuration for public keys, server addresses, and API endpoints.
 
 ## `C16_transer.py`
 

@@ -10,28 +10,9 @@ import json
 import argparse
 import requests
 
-REGION_CONFIG = {
-    "cn": {"host": "component-ota-cn.allawntech.com", "language": "zh-CN", "carrier_id": "10010111"},
-    "cn_cmcc": {"host": "component-ota-cn.allawntech.com", "language": "zh-CN", "carrier_id": "10011000"},
-    "eu": {"host": "component-ota-eu.allawnos.com", "language": "en-GB", "carrier_id": "01000100"},
-    "in": {"host": "component-ota-in.allawnos.com", "language": "en-IN", "carrier_id": "00011011"},
-    "sg_host": {"host": "component-ota-sg.allawnos.com"},
-    "sg": {"language": "en-SG", "carrier_id": "01011010"},
-    "ru": {"language": "ru-RU", "carrier_id": "00110111"},
-    "tr": {"language": "tr-TR", "carrier_id": "01010001"},
-    "th": {"language": "th-TH", "carrier_id": "00111001"},
-    "gl": {"language": "en-US", "carrier_id": "10100111"},
-    "id": {"language": "id-ID", "carrier_id": "00110011"},
-    "tw": {"language": "zh-TW", "carrier_id": "00011010"},
-    "my": {"language": "ms-MY", "carrier_id": "00111000"},
-    "vn": {"language": "vi-VN", "carrier_id": "00111100"},
-    "sa": {"language": "sa-SA", "carrier_id": "10000011"},
-    "mea": {"language": "en-MEA", "carrier_id": "10100110"},
-    "ph": {"language": "en-PH", "carrier_id": "001111110"},
-    "roe": {"language": "en-EU", "carrier_id": "10001101"},
-    "la": {"language": "en-LA", "carrier_id": "10011010"},
-    "br": {"language": "en-BR", "carrier_id": "10011110"}
-}
+from config import OTA_REGION_CONFIG
+
+REGION_CONFIG = OTA_REGION_CONFIG
 
 VALID_REGIONS = [r for r in REGION_CONFIG.keys() if r != "sg_host"]
 CHINA_REGIONS = ["cn", "cn_cmcc"]  # Use bullet prefix for Chinese regions

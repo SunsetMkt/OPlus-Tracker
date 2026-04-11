@@ -23,25 +23,13 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 
+from config import OPEX_CONFIG
+
 # --- Configuration Constants ---
 
-OPEX_PUBLIC_KEY_CN = """-----BEGIN RSA PUBLIC KEY-----
-MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAr/B2JwdaZIQqVpx10R4R
-o/ZjCLzssu3vIZCKNwDh4LMBkeHRjcjtaVPoPvvTKY74XlMg7fmRv0iQELnlFNtH
-jgg8YnmhZObUmpVdpHLhthRSBqpRKl2LhMgYtE/SELUKvzelw2byNcRnU9/PvbsA
-Dcgz7IUFAzOvvtxnbaOd9CAthvO+0BTSk3dnBt6CT4nScgr13BAn6RTJI0wV5DZM
-pLNsTEXiTcQT3ZX2LcT6bRN8yUmGuARjLh2VG7H1gSxjUUDsKcFmcJY/8zyB64nq
-vX4Gya86c2bVaEd+CsMsOEYISWdVrG+Rf6y3BaG1DZRQDh0GD1cwtvA+JtvEmqGk
-qwIDAQAB
------END RSA PUBLIC KEY-----"""
+OPEX_PUBLIC_KEY_CN = OPEX_CONFIG["public_key_cn"]
 
-OPEX_CONFIG_CN = {
-    "host": "opex-service-cn.allawntech.com",
-    "endpoint": "/queryUpdate",
-    "public_key_version": "1631001537253",
-    "language": "zh-CN",
-    "carrier_id": "10010111"
-}
+OPEX_CONFIG_CN = OPEX_CONFIG["cn"]
 
 @dataclass
 class OpexInfo:

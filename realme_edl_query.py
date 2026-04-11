@@ -41,12 +41,16 @@ Example:
     if len(DATE_PREFIX) != 12:
         parser.error(f"Date length is {len(DATE_PREFIX)}, expected 12 characters.")
 
+    from config import REALME_CONFIG
+
     if REGION in ("EU", "EUEX", "EEA", "TR"):
-        BUCKET, SERVER = "GDPR", "rms01.realme.net"
+        conf = REALME_CONFIG["gdpr"]
     elif REGION in ("CN", "CH"):
-        BUCKET, SERVER = "domestic", "rms11.realme.net"
+        conf = REALME_CONFIG["domestic"]
     else:
-        BUCKET, SERVER = "export", "rms01.realme.net"
+        conf = REALME_CONFIG["export"]
+    
+    BUCKET, SERVER = conf["bucket"], conf["server"]
 
     VERSION_CLEAN = re.sub(r"^RMX\d+_", "", VERSION_NAME).replace("(", "").replace(")", "")
     MODEL = VERSION_NAME.split("_")[0]

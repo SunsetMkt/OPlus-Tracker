@@ -21,24 +21,18 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 
+from config import SOTA_CONFIG
+
 # --- Configuration ---
 
 # API URLs
-API_URL_QUERY = "https://component-ota-cn.allawntech.com/update/v6"
-API_URL_UPDATE = "https://component-ota-cn.allawntech.com/sotaUpdate/v1"
+API_URL_QUERY = SOTA_CONFIG["api_url_query"]
+API_URL_UPDATE = SOTA_CONFIG["api_url_update"]
 
 # CN Region Public Key
-PUBLIC_KEY_CN = """-----BEGIN RSA PUBLIC KEY-----
-MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEApXYGXQpNL7gmMzzvajHa
-oZIHQQvBc2cOEhJc7/tsaO4sT0unoQnwQKfNQCuv7qC1Nu32eCLuewe9LSYhDXr9
-KSBWjOcCFXVXteLO9WCaAh5hwnUoP/5/Wz0jJwBA+yqs3AaGLA9wJ0+B2lB1vLE4
-FZNE7exUfwUc03fJxHG9nCLKjIZlrnAAHjRCd8mpnADwfkCEIPIGhnwq7pdkbamZ
-coZfZud1+fPsELviB9u447C6bKnTU4AaMcR9Y2/uI6TJUTcgyCp+ilgU0JxemrSI
-PFk3jbCbzamQ6Shkw/jDRzYoXpBRg/2QDkbq+j3ljInu0RHDfOeXf3VBfHSnQ66H
-CwIDAQAB
------END RSA PUBLIC KEY-----"""
+PUBLIC_KEY_CN = SOTA_CONFIG["public_key_cn"]
 
-DEFAULT_NEGOTIATION_VERSION = "1615879139745"
+DEFAULT_NEGOTIATION_VERSION = SOTA_CONFIG["default_negotiation_version"]
 
 # --- Crypto Helpers ---
 

@@ -19,10 +19,11 @@ import requests
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 
-OLD_KEYS = ["oppo1997", "baed2017", "java7865", "231uiedn", "09e32ji6",
-            "0oiu3jdy", "0pej387l", "2dkliuyt", "20odiuye", "87j3id7w"]
+from config import IOT_CONFIG
 
-SPECIAL_SERVER_CN = "https://iota.coloros.com/post/Query_Update"
+OLD_KEYS = IOT_CONFIG["old_keys"]
+
+SPECIAL_SERVER_CN = IOT_CONFIG["special_server_cn"]
 
 def get_key(key_pseudo: str) -> bytes:
     return (OLD_KEYS[int(key_pseudo[0])] + key_pseudo[4:12]).encode('utf-8')
@@ -60,8 +61,8 @@ def replace_gauss_url(url: str) -> str:
     if not url or url == "N/A":
         return url
     return url.replace(
-        "https://gauss-otacostauto-cn.allawnfs.com/",
-        "https://gauss-componentotacostmanual-cn.allawnfs.com/"
+        IOT_CONFIG["gauss_auto_url"],
+        IOT_CONFIG["gauss_manual_url"]
     )
 
 def build_special_request_data(ota_version: str, model: str) -> Tuple[Dict, Dict]:

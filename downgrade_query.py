@@ -18,20 +18,13 @@ from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 
+from config import DOWNGRADE_CONFIG
+
 # --- Configuration ---
 
-URL = "https://downgrade.coloros.com/downgrade/query-v3"
-NEGOTIATION_VERSION = 1636449646204
-
-REAL_PUB_KEY = """-----BEGIN PUBLIC KEY-----
-MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAmeQzr0TIbtwZFnDXgatg
-6xP9SlNBFho1NTdFQ27SKDF+dBEEfnG9BqRw0na0DUqtpWe2CUtldbU33nnJ0KB6
-z7y5f+89o9n8mJxIbh952gpskBxyrhCfpYHV5mt/n9Tkm8OcQWLRFou7/XITuZeZ
-ejfUTesQjpfOeCaeKyVSoKQc6WuH7NSYq6B37RMyEn/1+vo8XuHEKD84p29KGpyG
-I7ZeL85iOcwBmOD6+e4yideH2RatA1SzEv/9V8BflaFLAWDuPWUjA2WgfOvy5spY
-mp/MoMOX4P0d+AkJ9Ms6PUXEUBsbOACmaMFyLCLHmd18+UeGdJR/3I15sXKbJhKe
-rwIDAQAB
------END PUBLIC KEY-----"""
+URL = DOWNGRADE_CONFIG["url"]
+NEGOTIATION_VERSION = DOWNGRADE_CONFIG["negotiation_version"]
+REAL_PUB_KEY = DOWNGRADE_CONFIG["public_key"]
 
 # --- Crypto Helpers ---
 
