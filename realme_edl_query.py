@@ -5,9 +5,11 @@ Designed by Jerry Tse
 """
 
 import argparse
+import io
 import re
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from contextlib import redirect_stdout
 from typing import Optional
 
 import requests
@@ -52,7 +54,7 @@ def query_edl_link(version_name: str, region: str, date_prefix: str) -> Optional
     return None
 
 
-def main(argv=None) -> int:
+def _main_impl(argv=None) -> int:
     parser = argparse.ArgumentParser(
         description="Realme EDL Query Tool",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -94,8 +96,23 @@ Example:
     return 1
 
 
+def main(argv=None):
+    output_buffer = io.StringIO()
+    with redirect_stdout(output_buffer):
+        exit_code = _main_impl(argv)
+
+    return {
+        "success": exit_code == 0,
+        "exit_code": exit_code,
+        "output": output_buffer.getvalue(),
+    }
+
+
 if __name__ == "__main__":
     try:
-        sys.exit(main())
+        result = main()
+        if result.get("output"):
+            print(result["output"], end="")
+        sys.exit(result["exit_code"])
     except KeyboardInterrupt:
         sys.exit(130)

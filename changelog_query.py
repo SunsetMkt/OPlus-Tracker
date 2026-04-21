@@ -5,9 +5,11 @@ Designed by Jerry Tse
 """
 
 import argparse
+import io
 import json
 import re
 import sys
+from contextlib import redirect_stdout
 
 import requests
 
@@ -129,7 +131,7 @@ def format_output(data: dict, region: str) -> None:
             first_printed = True
 
 
-def main(argv=None) -> int:
+def _main_impl(argv=None) -> int:
     parser = argparse.ArgumentParser(
         description="ColorOS Update Log Query Tool",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -248,9 +250,24 @@ Example:
     return 0
 
 
+def main(argv=None):
+    output_buffer = io.StringIO()
+    with redirect_stdout(output_buffer):
+        exit_code = _main_impl(argv)
+
+    return {
+        "success": exit_code == 0,
+        "exit_code": exit_code,
+        "output": output_buffer.getvalue(),
+    }
+
+
 if __name__ == "__main__":
     try:
-        sys.exit(main())
+        result = main()
+        if result.get("output"):
+            print(result["output"], end="")
+        sys.exit(result["exit_code"])
     except KeyboardInterrupt:
         print("\n\n⚠️  Script interrupted by user.")
         sys.exit(0)
