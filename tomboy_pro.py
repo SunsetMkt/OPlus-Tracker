@@ -79,7 +79,7 @@ class QueryConfig:
     custom_language: Optional[str] = None
     nvid: Optional[str] = None
     graynew: str = "0"
-    recruitID: Optional[str] = None
+    recruitID: int = 0
 
 def generate_imei():
     return ''.join(map(str, [random.randint(0, 9) for _ in range(15)]))
@@ -272,7 +272,7 @@ def query_update(config: QueryConfig) -> QueryResult:
     if config.components_input:
         request_body["components"] = parse_components(config.components_input)
     if config.recruitID:
-        request_body["recruitId"] = config.recruitID
+        request_body["recruitId"] = "whoami"
     cipher_text = aes_ctr_encrypt(json.dumps(request_body).encode(), aes_key, iv)
     endpoint_ver = "/update/v6" if (config.pre == "1") or (config.guid and config.guid != "0"*64) else "/update/v3"
     url = f"https://{region_config['host']}{endpoint_ver}"
@@ -547,7 +547,7 @@ def parse_args():
     group_ota.add_argument("--nvid", type=str, help="Custom NV Carrier ID (8 digits)")
     # New argument for graynew mode
     parser.add_argument("--graynew", type=int, choices=[0, 1], default=0,help="Query FWs not in taste mode but in gray server")
-    parser.add_argument("--recruit", help="recruitID for beta ROM")
+    parser.add_argument("--recruit", type=int, choices=[0, 1], default=0,help="recruitID for beta ROM")
     
     args = parser.parse_args()
     
