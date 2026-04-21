@@ -691,7 +691,7 @@ def parse_args():
     return args
 
 
-def main():
+def main() -> int:
     try:
         args = parse_args()
 
@@ -748,12 +748,15 @@ def main():
                 result = query_update(config)
 
             display_result(result)
+        return 0
 
     except KeyboardInterrupt:
-        sys.exit("\nInterrupted")
+        print("\nInterrupted")
+        return 130
     except Exception as e:
-        sys.exit(f"\nError: {e}")
+        print(f"\nError: {e}")
+        return 1
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
