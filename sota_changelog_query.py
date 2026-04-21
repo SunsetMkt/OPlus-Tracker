@@ -1,25 +1,22 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 """
 SOTA(Software OTA) Changelog Query
 Designed by Jerry Tse
 """
 
-import sys
-import os
-import json
-import base64
-import time
-import re
 import argparse
-from typing import Dict, Any, Optional, Tuple, List
-from datetime import datetime
+import base64
+import json
+import os
+import sys
+import time
+from typing import Any, Dict, List, Optional, Tuple
 
 import requests
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import padding
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
 from config import SOTA_CONFIG
 
@@ -35,18 +32,22 @@ DEFAULT_NEGOTIATION_VERSION = SOTA_CONFIG["default_negotiation_version"]
 
 # --- Crypto Helpers ---
 
+
 def generate_random_bytes(length: int) -> bytes:
     return os.urandom(length)
+
 
 def aes_ctr_encrypt(data: bytes, key: bytes, iv: bytes) -> bytes:
     cipher = Cipher(algorithms.AES(key), modes.CTR(iv), backend=default_backend())
     encryptor = cipher.encryptor()
     return encryptor.update(data) + encryptor.finalize()
 
+
 def aes_ctr_decrypt(ciphertext: bytes, key: bytes, iv: bytes) -> bytes:
     cipher = Cipher(algorithms.AES(key), modes.CTR(iv), backend=default_backend())
     decryptor = cipher.decryptor()
     return decryptor.update(ciphertext) + decryptor.finalize()
+
 
 def generate_protected_key(aes_key: bytes, public_key_pem: str) -> str:
     public_key = serialization.load_pem_public_key(
@@ -55,29 +56,49 @@ def generate_protected_key(aes_key: bytes, public_key_pem: str) -> str:
     key_b64 = base64.b64encode(aes_key)
     ciphertext = public_key.encrypt(
         key_b64,
-        padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA1()), algorithm=hashes.SHA1(), label=None)
+        padding.OAEP(
+            mgf=padding.MGF1(algorithm=hashes.SHA1()),
+            algorithm=hashes.SHA1(),
+            label=None,
+        ),
     )
     return base64.b64encode(ciphertext).decode()
 
+
 # --- Common Functions ---
+
 
 def parse_brand(brand_str: str) -> str:
     brand_lower = brand_str.strip().lower()
-    if brand_lower == "oppo": return "OPPO"
-    elif brand_lower == "oneplus": return "OnePlus"
-    elif brand_lower == "realme": return "Realme"
-    else: sys.exit(f"Error: Invalid brand '{brand_str}'. Supported: OPPO, OnePlus, Realme")
+    if brand_lower == "oppo":
+        return "OPPO"
+    elif brand_lower == "oneplus":
+        return "OnePlus"
+    elif brand_lower == "realme":
+        return "Realme"
+    else:
+        raise ValueError(
+            f"Error: Invalid brand '{brand_str}'. Supported: OPPO, OnePlus, Realme"
+        )
 
-def build_headers(aes_key: bytes, public_key: str, config: Dict[str, str], is_update_request: bool = False) -> Dict[str, str]:
+
+def build_headers(
+    aes_key: bytes,
+    public_key: str,
+    config: Dict[str, str],
+    is_update_request: bool = False,
+) -> Dict[str, str]:
     protected_key_payload = generate_protected_key(aes_key, public_key)
     timestamp = str(time.time_ns() + 10**9 * 60 * 60 * 24)
-    protected_key_json = json.dumps({
-        "SCENE_1": {
-            "protectedKey": protected_key_payload,
-            "version": timestamp,
-            "negotiationVersion": DEFAULT_NEGOTIATION_VERSION
+    protected_key_json = json.dumps(
+        {
+            "SCENE_1": {
+                "protectedKey": protected_key_payload,
+                "version": timestamp,
+                "negotiationVersion": DEFAULT_NEGOTIATION_VERSION,
+            }
         }
-    })
+    )
 
     headers = {
         "language": "zh-CN",
@@ -96,23 +117,26 @@ def build_headers(aes_key: bytes, public_key: str, config: Dict[str, str], is_up
         "protectedKey": protected_key_json,
         "Content-Type": "application/json; charset=utf-8",
         "User-Agent": "okhttp/4.12.0",
-        "Accept-Encoding": "gzip"
+        "Accept-Encoding": "gzip",
     }
-    
+
     if is_update_request:
         headers.update({"romVersion": config["rom_version"]})
     else:
         headers.update({"romVersion": "unknown"})
     return headers
 
-def execute_query_request(config: Dict[str, str]) -> Tuple[Optional[Dict[str, Any]], Optional[bytes], Optional[bytes]]:
+
+def execute_query_request(
+    config: Dict[str, str],
+) -> Tuple[Optional[Dict[str, Any]], Optional[bytes], Optional[bytes]]:
     aes_key = generate_random_bytes(32)
     iv = generate_random_bytes(16)
     headers = build_headers(aes_key, PUBLIC_KEY_CN, config, is_update_request=False)
-    
+
     current_time = int(time.time() * 1000)
     ota_update_time = current_time - (15 * 24 * 60 * 60 * 1000)
-    
+
     body = {
         "mode": 0,
         "time": current_time,
@@ -130,58 +154,59 @@ def execute_query_request(config: Dict[str, str]) -> Tuple[Optional[Dict[str, An
             "frameworkVer": "10",
             "supportLightH": "1",
             "updateViaReboot": 2,
-            "sotaProtocolVersionNew": ["apk", "opex", "rus"]
+            "sotaProtocolVersionNew": ["apk", "opex", "rus"],
         },
         "otaAppVersion": 16000021,
-        "deviceId": "0" * 64
+        "deviceId": "0" * 64,
     }
-    
+
     payload_str = json.dumps(body)
     cipher_text = aes_ctr_encrypt(payload_str.encode(), aes_key, iv)
     wrapped_data = {
-        "params": json.dumps({
-            "cipher": base64.b64encode(cipher_text).decode(),
-            "iv": base64.b64encode(iv).decode()
-        })
+        "params": json.dumps(
+            {
+                "cipher": base64.b64encode(cipher_text).decode(),
+                "iv": base64.b64encode(iv).decode(),
+            }
+        )
     }
-    
+
     try:
-        response = requests.post(API_URL_QUERY, headers=headers, json=wrapped_data, timeout=30)
+        response = requests.post(
+            API_URL_QUERY, headers=headers, json=wrapped_data, timeout=30
+        )
         if response.status_code != 200:
-            print(f"[!] Query failed with HTTP {response.status_code}")
-            sys.exit(1)
+            raise RuntimeError(f"[!] Query failed with HTTP {response.status_code}")
         resp_json = response.json()
         if "body" not in resp_json:
-            print("[!] Nothing in query response")
-            sys.exit(1)
+            raise RuntimeError("[!] Nothing in query response")
         encrypted_body = json.loads(resp_json["body"])
         decrypted_bytes = aes_ctr_decrypt(
-            base64.b64decode(encrypted_body["cipher"]), 
-            aes_key, 
-            base64.b64decode(encrypted_body["iv"])
+            base64.b64decode(encrypted_body["cipher"]),
+            aes_key,
+            base64.b64decode(encrypted_body["iv"]),
         )
         decrypted_json = json.loads(decrypted_bytes.decode())
         return decrypted_json, aes_key, iv
-    except Exception:
-        print("[!] Query error, something was wrong in arguments")
-        sys.exit(1)
+    except Exception as e:
+        raise RuntimeError(f"[!] Query request/decode failed: {str(e)}") from e
 
-def execute_update_request(query_result: Dict[str, Any], config: Dict[str, str]) -> Optional[Dict[str, Any]]:
+
+def execute_update_request(
+    query_result: Dict[str, Any], config: Dict[str, str]
+) -> Optional[Dict[str, Any]]:
     if "sota" not in query_result:
-        print("[!] No SOTA data found in query results")
-        sys.exit(1)
-    
+        raise RuntimeError("[!] No SOTA data found in query results")
+
     sota_data = query_result["sota"]
     new_sota_version = sota_data.get("sotaVersion", "")
     if not new_sota_version:
-        print("[!] No SOTA version found in query results")
-        sys.exit(1)
-    
+        raise RuntimeError("[!] No SOTA version found in query results")
+
     apk_modules = sota_data.get("moduleMap", {}).get("apk", [])
     if not apk_modules:
-        print("[!] No APK modules found in query results")
-        sys.exit(1)
-    
+        raise RuntimeError("[!] No APK modules found in query results")
+
     # Generate lower version numbers for update request
     sau_modules = []
     for module in apk_modules:
@@ -191,12 +216,14 @@ def execute_update_request(query_result: Dict[str, Any], config: Dict[str, str])
             current_version = max(1, latest_version - (latest_version // 10))
         else:
             current_version = max(1, latest_version - 1)
-        sau_modules.append({
-            "sotaVersion": new_sota_version,
-            "moduleName": module_name,
-            "moduleVersion": current_version
-        })
-    
+        sau_modules.append(
+            {
+                "sotaVersion": new_sota_version,
+                "moduleName": module_name,
+                "moduleVersion": current_version,
+            }
+        )
+
     body = {
         "sotaProtocolVersion": "2",
         "sotaProtocolVersionNew": ["apk", "opex", "rus"],
@@ -206,54 +233,65 @@ def execute_update_request(query_result: Dict[str, Any], config: Dict[str, str])
         "moduleMap": {"sau": sau_modules},
         "mode": 0,
         "deviceId": "0" * 64,
-        "otaVersion": config["ota_version"]
+        "otaVersion": config["ota_version"],
     }
-    
+
     update_aes_key = generate_random_bytes(32)
     update_iv = generate_random_bytes(16)
-    headers = build_headers(update_aes_key, PUBLIC_KEY_CN, config, is_update_request=True)
-    
+    headers = build_headers(
+        update_aes_key, PUBLIC_KEY_CN, config, is_update_request=True
+    )
+
     payload_str = json.dumps(body)
     cipher_text = aes_ctr_encrypt(payload_str.encode(), update_aes_key, update_iv)
     wrapped_data = {
-        "params": json.dumps({
-            "cipher": base64.b64encode(cipher_text).decode(),
-            "iv": base64.b64encode(update_iv).decode()
-        })
+        "params": json.dumps(
+            {
+                "cipher": base64.b64encode(cipher_text).decode(),
+                "iv": base64.b64encode(update_iv).decode(),
+            }
+        )
     }
-    
+
     try:
-        response = requests.post(API_URL_UPDATE, headers=headers, json=wrapped_data, timeout=30)
+        response = requests.post(
+            API_URL_UPDATE, headers=headers, json=wrapped_data, timeout=30
+        )
         if response.status_code != 200:
-            print(f"[!] Update request failed with HTTP {response.status_code}")
-            sys.exit(1)
+            raise RuntimeError(
+                f"[!] Update request failed with HTTP {response.status_code}"
+            )
         resp_json = response.json()
         if "body" not in resp_json:
-            print("[!] Nothing in update response")
-            sys.exit(1)
+            raise RuntimeError("[!] Nothing in update response")
         encrypted_body = json.loads(resp_json["body"])
         decrypted_bytes = aes_ctr_decrypt(
-            base64.b64decode(encrypted_body["cipher"]), 
-            update_aes_key, 
-            base64.b64decode(encrypted_body["iv"])
+            base64.b64decode(encrypted_body["cipher"]),
+            update_aes_key,
+            base64.b64decode(encrypted_body["iv"]),
         )
         decrypted_json = json.loads(decrypted_bytes.decode())
         return decrypted_json
     except Exception as e:
-        print(f"[!] Update error: {str(e)}")
         import traceback
-        traceback.print_exc()
-        return None
 
-def fetch_sota_description(modules: List[Dict], sota_version: str, config: Dict[str, str]) -> Optional[Dict]:
+        traceback.print_exc()
+        raise RuntimeError(f"[!] Update error: {str(e)}") from e
+
+
+def fetch_sota_description(
+    modules: List[Dict], sota_version: str, config: Dict[str, str]
+) -> Optional[Dict]:
     sota_list = []
     for mod in modules:
-        sota_list.append({
-            "sotaVersion": sota_version,
-            "moduleName": mod["moduleName"],
-            "moduleVersion": mod["moduleVersion"]
-        })
-    
+        sota_list.append(
+            {
+                "sotaVersion": sota_version,
+                "moduleName": mod["moduleName"],
+                "moduleVersion": mod["moduleVersion"],
+            }
+        )
+
     inner_params = {
         "otaVersion": config["ota_version"],
         "mode": 0,
@@ -262,10 +300,10 @@ def fetch_sota_description(modules: List[Dict], sota_version: str, config: Dict[
         "sotaProtocolVersion": "2",
         "sotaVersion": sota_version,
         "noUpgradeModules": [],
-        "h5LinkVersion": 6
+        "h5LinkVersion": 6,
     }
-    params_str = json.dumps(inner_params, separators=(',', ':'), ensure_ascii=False)
-    
+    params_str = json.dumps(inner_params, separators=(",", ":"), ensure_ascii=False)
+
     headers = {
         "language": "zh-CN",
         "brandSota": config["brand"].lower(),
@@ -282,17 +320,20 @@ def fetch_sota_description(modules: List[Dict], sota_version: str, config: Dict[
         "androidVersion": "unknown",
         "Accept": "application/json, text/plain, */*",
         "Content-Type": "application/json",
-        "User-Agent": "okhttp/4.12.0"
+        "User-Agent": "okhttp/4.12.0",
     }
-    
+
     payload = {"params": params_str}
     try:
-        response = requests.post(API_URL_DESCRIPTION, headers=headers, json=payload, timeout=30)
+        response = requests.post(
+            API_URL_DESCRIPTION, headers=headers, json=payload, timeout=30
+        )
         response.raise_for_status()
         return response.json()
     except Exception as e:
         print(f"[!] Failed to fetch SOTA description: {str(e)}")
         return None
+
 
 def extract_apk_modules(update_result: Dict[str, Any]) -> Tuple[str, List[Dict]]:
     sota_version = "Unknown"
@@ -305,19 +346,22 @@ def extract_apk_modules(update_result: Dict[str, Any]) -> Tuple[str, List[Dict]]
     if not apk_modules:
         return sota_version, modules_list
     for apk in apk_modules:
-        modules_list.append({
-            "moduleName": apk.get("moduleName", "Unknown"),
-            "moduleVersion": apk.get("moduleVersion", 0)
-        })
+        modules_list.append(
+            {
+                "moduleName": apk.get("moduleName", "Unknown"),
+                "moduleVersion": apk.get("moduleVersion", 0),
+            }
+        )
         if sota_version == "Unknown" and "sotaVersion" in apk:
             sota_version = apk["sotaVersion"]
     return sota_version, modules_list
+
 
 def print_changelog(sota_version: str, description_response: Dict):
     if not description_response:
         print("Not found sota changelog")
         return
-        
+
     body_str = description_response.get("body")
     if body_str:
         try:
@@ -371,79 +415,127 @@ def print_changelog(sota_version: str, description_response: Dict):
         except:
             pass
 
-def main(args):
-    if not all([args.brand, args.ota_version, args.coloros]):
-        print("❌ Error: All parameters are required")
-        print("\nUsage Example:")
-        print("  python3 sota_query.py --brand OnePlus \\")
-        print("                       --ota-version PJX110_11.F.13_2130_202512181912 \\")
-        print("                       --coloros ColorOS16.0.0 \\")
-        return
-    
-    brand = parse_brand(args.brand)
 
+def run_sota_changelog_query(brand: str, ota_version: str, coloros: str):
+    brand = parse_brand(brand)
     config = {
         "brand": brand,
-        "ota_version": args.ota_version,
-        "model": args.ota_version.split('_')[0],
-        "coloros": args.coloros,
-        "rom_version": "unknown"
+        "ota_version": ota_version,
+        "model": ota_version.split("_")[0],
+        "coloros": coloros,
+        "rom_version": "unknown",
     }
-    
-    print(f"Device: {config['model']}")
-    print(f"OS: {config['coloros'].replace('ColorOS', 'ColorOS ')}")
-    print()
-
     query_result, _, _ = execute_query_request(config)
-    if query_result is None:
-        return
-    
     update_result = execute_update_request(query_result, config)
-    if update_result is None:
-        return
-    
     sota_version, modules_list = extract_apk_modules(update_result)
     if not modules_list:
-        print("No available SOTA Update")
-        return
-    
+        return {
+            "config": config,
+            "sota_version": sota_version,
+            "output_lines": ["No available SOTA Update"],
+        }
     description_response = fetch_sota_description(modules_list, sota_version, config)
+    lines = build_changelog_lines(sota_version, description_response)
+    return {"config": config, "sota_version": sota_version, "output_lines": lines}
 
-    print_changelog(sota_version, description_response)
+
+def build_changelog_lines(sota_version: str, description_response: Dict) -> List[str]:
+    lines = []
+    if not description_response:
+        return ["Not found SOTA changelog"]
+
+    body_str = description_response.get("body")
+    if body_str:
+        try:
+            data = json.loads(body_str)
+        except Exception:
+            data = description_response
+    else:
+        data = description_response
+
+    module_map = data.get("moduleMap", {})
+    apk_modules = module_map.get("apk", [])
+    if not apk_modules:
+        return ["Not found apk changelog"]
+
+    lines.append(f"Get SOTA Changelog from {sota_version}\n")
+    for module in apk_modules:
+        desc_str = module.get("description", "{}")
+        try:
+            desc = json.loads(desc_str)
+        except Exception:
+            continue
+        title = desc.get("title")
+        content_list = desc.get("content", [])
+        if not content_list:
+            continue
+        lines.append(title)
+        for item in content_list:
+            data_text = item.get("data", "")
+            if data_text:
+                lines.append(data_text)
+        lines.append("")
+
+    default_desc = data.get("defaultDescription")
+    if default_desc:
+        desc_str = default_desc.get("description", "{}")
+        try:
+            desc = json.loads(desc_str)
+            title = desc.get("title")
+            content_list = desc.get("content", [])
+            if content_list:
+                lines.append(title)
+                for item in content_list:
+                    data_text = item.get("data", "")
+                    if data_text:
+                        lines.append(data_text)
+                lines.append("")
+        except Exception:
+            pass
+    return lines
+
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description='SOTA APK Query Tool - Changelog only',
+        description="SOTA APK Query Tool - Changelog only",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Usage Example:
-  python3 %(prog)s --brand OnePlus \\
+  python %(prog)s --brand OnePlus \\
                    --ota-version PJX110_11.F.13_2130_202512181912 \\
                    --coloros ColorOS16.0.0 \\"
-        """
+        """,
     )
-    parser.add_argument('--brand', required=True, help='Device brand (e.g., OnePlus, OPPO)')
-    parser.add_argument('--ota-version', required=True, help='OTA version (e.g., PJX110_11.F.13_2130_202512181912)')
-    parser.add_argument('--coloros', required=True, help='ColorOS version (e.g., ColorOS16.0.0)')
-    
-    try:
-        return parser.parse_args()
-    except SystemExit:
-        print("\nUsage Example:")
-        print("  python3 sota_query.py --brand OnePlus \\")
-        print("                       --ota-version PJX110_11.F.13_2130_202512181912 \\")
-        print("                       --coloros ColorOS16.0.0 \\")
-        sys.exit(1)
+    parser.add_argument(
+        "--brand", required=True, help="Device brand (e.g., OnePlus, OPPO)"
+    )
+    parser.add_argument(
+        "--ota-version",
+        required=True,
+        help="OTA version (e.g., PJX110_11.F.13_2130_202512181912)",
+    )
+    parser.add_argument(
+        "--coloros", required=True, help="ColorOS version (e.g., ColorOS16.0.0)"
+    )
+    return parser.parse_args()
+
 
 if __name__ == "__main__":
-    args = parse_args()
     try:
-        main(args)
+        args = parse_args()
+        result = run_sota_changelog_query(args.brand, args.ota_version, args.coloros)
+        print(f"Device: {result['config']['model']}")
+        print(f"OS: {result['config']['coloros'].replace('ColorOS', 'ColorOS ')}")
+        print()
+        for line in result["output_lines"]:
+            print(line)
+        sys.exit(0)
     except KeyboardInterrupt:
-        print("\n\n⚠️  Script interrupted by user")
+        print("\n\nScript interrupted by user")
         sys.exit(0)
     except Exception as e:
-        print(f"\n❌ Unexpected error: {str(e)}")
+        print(f"\nUnexpected error: {str(e)}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
