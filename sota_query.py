@@ -208,7 +208,7 @@ def execute_query_request(
         return decrypted_json, aes_key, iv
 
     except Exception as e:
-        raise RuntimeError("[!] Query error, something was wrong in arguments") from e
+        raise RuntimeError(f"[!] Query request/decode failed: {str(e)}") from e
 
 
 def execute_update_request(
