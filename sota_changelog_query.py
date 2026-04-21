@@ -427,7 +427,7 @@ def main(args) -> int:
     if not all([args.brand, args.ota_version, args.coloros]):
         print("❌ Error: All parameters are required")
         print("\nUsage Example:")
-        print("  python3 sota_query.py --brand OnePlus \\")
+        print("  python3 sota_changelog_query.py --brand OnePlus \\")
         print(
             "                       --ota-version PJX110_11.F.13_2130_202512181912 \\"
         )
@@ -503,7 +503,7 @@ Usage Example:
     except ValueError as e:
         print(f"❌ Error: {e}")
         print("\nUsage Example:")
-        print("  python3 sota_query.py --brand OnePlus \\")
+        print("  python3 sota_changelog_query.py --brand OnePlus \\")
         print(
             "                       --ota-version PJX110_11.F.13_2130_202512181912 \\"
         )
