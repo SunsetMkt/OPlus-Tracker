@@ -78,8 +78,8 @@ def parse_brand(brand_str: str) -> str:
     elif brand_lower == "realme":
         return "Realme"
     else:
-        sys.exit(
-            f"Error: Invalid brand '{brand_str}'. Supported: OPPO, OnePlus, Realme"
+        raise ValueError(
+            f"Invalid brand '{brand_str}'. Supported: OPPO, OnePlus, Realme"
         )
 
 
@@ -190,13 +190,13 @@ def execute_query_request(
 
         if response.status_code != 200:
             print(f"[!] Query failed with HTTP {response.status_code}")
-            sys.exit(1)
+            return None, None, None
 
         resp_json = response.json()
 
         if "body" not in resp_json:
             print("[!] Nothing in query response")
-            sys.exit(1)
+            return None, None, None
 
         # Decrypt the response
         encrypted_body = json.loads(resp_json["body"])
@@ -209,9 +209,9 @@ def execute_query_request(
 
         return decrypted_json, aes_key, iv
 
-    except Exception as e:
+    except Exception:
         print(f"[!] Query error, something was wrong in arguments")
-        sys.exit(1)
+        return None, None, None
 
 
 def execute_update_request(
@@ -220,7 +220,7 @@ def execute_update_request(
     """Execute the update using data from query result"""
     if "sota" not in query_result:
         print("[!] No SOTA data found in query results")
-        sys.exit(1)
+        return None
 
     sota_data = query_result["sota"]
     new_sota_version = sota_data.get("sotaVersion", "")
@@ -228,13 +228,13 @@ def execute_update_request(
 
     if not new_sota_version:
         print("[!] No SOTA version found in query results")
-        sys.exit(1)
+        return None
 
     # Get APK modules from query result
     apk_modules = sota_data.get("moduleMap", {}).get("apk", [])
     if not apk_modules:
         print("[!] No APK modules found in query results")
-        sys.exit(1)
+        return None
 
     # Generate lower version numbers for update request
     # In real usage, you would get current versions from device
@@ -300,13 +300,13 @@ def execute_update_request(
 
         if response.status_code != 200:
             print(f"[!] Update request failed with HTTP {response.status_code}")
-            sys.exit(1)
+            return None
 
         resp_json = response.json()
 
         if "body" not in resp_json:
             print("[!] Nothing in update response")
-            sys.exit(1)
+            return None
 
         # Decrypt the response
         encrypted_body = json.loads(resp_json["body"])
@@ -399,7 +399,7 @@ def print_formatted_output(sota_version: str, formatted_lines: List[str]):
 # --- Main Execution ---
 
 
-def main(args):
+def main(args) -> int:
     """Main execution: run query, then update, then format output"""
 
     if not all([args.brand, args.ota_version, args.coloros]):
@@ -410,9 +410,13 @@ def main(args):
             "                       --ota-version PJX110_11.F.13_2130_202512181912 \\"
         )
         print("                       --coloros ColorOS16.0.0 \\")
-        return
+        return 1
 
-    brand = parse_brand(args.brand)
+    try:
+        brand = parse_brand(args.brand)
+    except ValueError as e:
+        print(f"❌ Error: {e}")
+        return 1
 
     # Create config dictionary from args
     config = {
@@ -431,22 +435,27 @@ def main(args):
 
     if query_result is None:
         print("[!] Query failed. Cannot proceed with update.")
-        return
+        return 1
 
     update_result = execute_update_request(query_result, config)
 
     if update_result is None:
         print("[!] Update failed. Cannot extract APK information.")
-        return
+        return 1
 
     sota_version, formatted_lines = extract_and_format_apk_info(update_result)
 
     print_formatted_output(sota_version, formatted_lines)
+    return 0
 
 
-def parse_args():
+def parse_args(argv=None):
     """Parse command line arguments with validation and custom error handling"""
-    parser = argparse.ArgumentParser(
+    class ArgumentParserNoExit(argparse.ArgumentParser):
+        def error(self, message):
+            raise ValueError(message)
+
+    parser = ArgumentParserNoExit(
         description="SOTA APK Query Tool - All parameters are required",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
@@ -472,8 +481,9 @@ Usage Example:
 
     # Custom error handling to show usage example
     try:
-        return parser.parse_args()
-    except SystemExit:
+        return parser.parse_args(argv)
+    except ValueError as e:
+        print(f"❌ Error: {e}")
         # Show usage example before exiting
         print("\nUsage Example:")
         print("  python3 sota_query.py --brand OnePlus \\")
@@ -481,16 +491,15 @@ Usage Example:
             "                       --ota-version PJX110_11.F.13_2130_202512181912 \\"
         )
         print("                       --coloros ColorOS16.0.0 \\")
-        sys.exit(1)
+        raise
 
 
 if __name__ == "__main__":
-    # Parse command line arguments
-    args = parse_args()
-
-    # Run main automation
     try:
-        main(args)
+        args = parse_args()
+        sys.exit(main(args))
+    except ValueError:
+        sys.exit(1)
     except KeyboardInterrupt:
         print("\n\n⚠️  Script interrupted by user")
         sys.exit(0)
