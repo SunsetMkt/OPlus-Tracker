@@ -156,10 +156,10 @@ python sota_query.py --brand OnePlus --ota-version PJX110_11.F.15_2150_202602051
 ### 用法
 
 ```bash
-python sota_query.py --brand BRAND --ota-version OTA_VERSION --coloros COLOROS
+python sota_changelog_query.py --brand BRAND --ota-version OTA_VERSION --coloros COLOROS
 
 # 示例
-python sota_query.py --brand OnePlus --ota-version PJX110_11.F.15_2150_202602051458 --coloros ColorOS16.0.0
+python sota_changelog_query.py --brand OnePlus --ota-version PJX110_11.F.15_2150_202602051458 --coloros ColorOS16.0.0
 ```
 
 **注意**：用法与 `sota_query.py` 相同，但仅用于查询更新日志。
@@ -235,10 +235,10 @@ Fetch Info:
 ### `downgrade_query_old.py` 的用法
 
 ```bash
-python downgrade_query.py <OTA_PREFIX> <PrjNum>
+python downgrade_query_old.py <OTA_PREFIX> <PrjNum>
 
 # 示例
-python downgrade_query.py PKX110_11.C 24821
+python downgrade_query_old.py PKX110_11.C 24821
 ```
 
 #### 参数限制
@@ -269,7 +269,7 @@ Fetch Info:
 python realme_edl_query.py <VERSION_NAME> <REGION> <DATE>
 
 # 示例
-python3 realme_edl_query.py "RMX3888_16.0.3.500(CN01)" CN 202601241320
+python realme_edl_query.py "RMX3888_16.0.3.500(CN01)" CN 202601241320
 ```
 
 #### 输出示例
@@ -296,12 +296,12 @@ Fetch Info:
 ### 用法
 
 ```bash
-python3 changelog_query.py <OTA_VERSION> <REGION>
+python changelog_query.py <OTA_VERSION> <REGION>
 
 # 示例
-python3 changelog_query.py PJD110_11.F.39_2390 CN
+python changelog_query.py PJD110_11.F.39_2390 cn
 
-python3 changelog_query.py PLP110_11.A.40_0400 CN --pre 1
+python changelog_query.py PLP110_11.A.40_0400 cn --pre 1
 ```
 
 **注意**：你可以不使用完整的 OTA 版本号，但至少需要包含两个 `_`（需包含版本号和版本代码）。

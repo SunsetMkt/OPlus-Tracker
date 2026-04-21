@@ -156,10 +156,10 @@ Queries **SOTA** (Software OTA) changelog — mainly for CN ColorOS System APPs 
 ### Usage
 
 ```bash
-python sota_query.py --brand BRAND --ota-version OTA_VERSION --coloros COLOROS
+python sota_changelog_query.py --brand BRAND --ota-version OTA_VERSION --coloros COLOROS
 
 # Examples
-python sota_query.py --brand OnePlus --ota-version PJX110_11.F.15_2150_202602051458 --coloros ColorOS16.0.0
+python sota_changelog_query.py --brand OnePlus --ota-version PJX110_11.F.15_2150_202602051458 --coloros ColorOS16.0.0
 ```
 
 **Note**: The same as `sota_query.py` but query for changelog only
@@ -235,10 +235,10 @@ Fetch Info:
 ### Usage of `downgrade_query_old.py`
 
 ```bash
-python downgrade_query.py <OTA_PREFIX> <PrjNum>
+python downgrade_query_old.py <OTA_PREFIX> <PrjNum>
 
 # Example
-python downgrade_query.py PKX110_11.C 24821
+python downgrade_query_old.py PKX110_11.C 24821
 ```
 
 #### Constraints
@@ -269,7 +269,7 @@ Query tool using REALME Server to query for EDL ROM.
 python realme_edl_query.py <VERSION_NAME> <REGION> <DATE>
 
 # Examples
-python3 realme_edl_query.py "RMX3888_16.0.3.500(CN01)" CN 202601241320
+python realme_edl_query.py "RMX3888_16.0.3.500(CN01)" CN 202601241320
 ```
 
 #### Output example
@@ -296,12 +296,12 @@ Query for specific version changelog
 ### Usage
 
 ```bash
-python3 changelog_query.py <OTA_VERSION> <REGION>
+python changelog_query.py <OTA_VERSION> <REGION>
 
 # Examples
-python3 changelog_query.py PJD110_11.F.39_2390 CN
+python changelog_query.py PJD110_11.F.39_2390 cn
 
-python3 changelog_query.py PLP110_11.A.40_0400 CN --pre 1
+python changelog_query.py PLP110_11.A.40_0400 cn --pre 1
 ```
 
 **Note**: You are allow not to use full OTA Version, but needed two `_` at least(include Version & Version Code)
