@@ -129,7 +129,7 @@ def format_output(data: dict, region: str) -> None:
             first_printed = True
 
 
-def main():
+def main(argv=None) -> int:
     parser = argparse.ArgumentParser(
         description="ColorOS Update Log Query Tool",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -157,7 +157,7 @@ Example:
             "  If omitted, version string is used as provided."
         ),
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     version_prefix = args.ota_prefix.upper()
     region = args.region.lower()
@@ -173,7 +173,7 @@ Example:
     if region not in VALID_REGIONS:
         available = ", ".join(sorted(VALID_REGIONS))
         print(f"\n❌ Error: Invalid region '{region}'. Available regions: {available}")
-        sys.exit(1)
+        return 1
 
     # Process PRE handling
     model, adjusted_prefix = process_version_prefix(version_prefix, pre_flag)
@@ -213,43 +213,44 @@ Example:
         response = requests.post(url, headers=headers, json=payload, timeout=15)
     except Exception as e:
         print(f"❌ Network error: {e}")
-        sys.exit(1)
+        return 1
 
     if response.status_code != 200:
         print(f"❌ HTTP error: {response.status_code}")
-        sys.exit(1)
+        return 1
 
     try:
         resp_json = response.json()
     except json.JSONDecodeError:
         print("❌ Response is not valid JSON.")
-        sys.exit(1)
+        return 1
 
     if resp_json.get("responseCode") == 500 and resp_json.get("errMsg") == "no modify":
         print("No changelog in Server")
-        sys.exit(0)
+        return 0
 
     if resp_json.get("responseCode") != 200:
         print(f"❌ API returned error code: {resp_json.get('responseCode')}")
-        sys.exit(1)
+        return 1
 
     body_str = resp_json.get("body")
     if not body_str:
         print("❌ No 'body' field in response.")
-        sys.exit(1)
+        return 1
 
     try:
         inner_data = json.loads(body_str)
     except json.JSONDecodeError:
         print("❌ 'body' content is not valid JSON.")
-        sys.exit(1)
+        return 1
 
     format_output(inner_data, region)
+    return 0
 
 
 if __name__ == "__main__":
     try:
-        main()
+        sys.exit(main())
     except KeyboardInterrupt:
         print("\n\n⚠️  Script interrupted by user.")
         sys.exit(0)
