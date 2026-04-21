@@ -10,6 +10,7 @@ import json
 import random
 import re
 import string
+import sys
 import time
 from typing import Dict, Tuple
 
@@ -138,17 +139,56 @@ def query_iot_server(ota_version: str, model: str):
         return None
 
 
-def display_iot_result(decrypted_json):
+def build_iot_result(decrypted_json):
     down_url = replace_gauss_url(decrypted_json.get("down_url", "N/A"))
     changelog = replace_gauss_url(str(decrypted_json.get("description", "N/A")))
     patch_level = str(decrypted_json.get("googlePatchLevel", "N/A")).replace("0", "N/A")
+    return {
+        "link": down_url,
+        "changelog": changelog,
+        "security_patch": patch_level,
+        "version": decrypted_json.get("new_version", "N/A"),
+        "ota_version": decrypted_json.get("new_version", "N/A"),
+    }
 
-    print("Fetch Info:")
-    print(f"• Link: {down_url}")
-    print(f"• Changelog: {changelog}")
-    print(f"• Security Patch: {patch_level}")
-    print(f"• Version: {decrypted_json.get('new_version', 'N/A')}")
-    print(f"• Ota Version: {decrypted_json.get('new_version', 'N/A')}")
+
+def query_iot(ota_prefix: str, model_override: str = None):
+    ota_input = ota_prefix.upper()
+
+    is_simple = not bool(
+        re.search(r"_\d{2}\.[A-Z]", ota_input) or ota_input.count("_") >= 3
+    )
+    results = []
+
+    if is_simple:
+        suffixes = ["_11.A", "_11.C", "_11.F", "_11.H"]
+        model = model_override if model_override else ota_input
+
+        for suffix in suffixes:
+            current_prefix = ota_input + suffix
+            full_version = f"{current_prefix}.01_0001_197001010000"
+            result = query_iot_server(full_version, model)
+            if result:
+                results.append(
+                    {"query": current_prefix, "found": True, "result": build_iot_result(result)}
+                )
+            else:
+                results.append({"query": current_prefix, "found": False, "result": None})
+
+    else:
+        parts = ota_input.split("_")
+        model = model_override if model_override else parts[0]
+        full_version = (
+            f"{ota_input}.01_0001_197001010000" if len(parts) < 3 else ota_input
+        )
+        result = query_iot_server(full_version, model)
+        if result:
+            results.append(
+                {"query": ota_input, "found": True, "result": build_iot_result(result)}
+            )
+        else:
+            results.append({"query": ota_input, "found": False, "result": None})
+    return results
 
 
 def main():
@@ -160,43 +200,23 @@ def main():
     parser.add_argument("--model", help="Custom model override")
 
     args = parser.parse_args()
-    ota_input = args.ota_prefix.upper()
-
-    is_simple = not bool(
-        re.search(r"_\d{2}\.[A-Z]", ota_input) or ota_input.count("_") >= 3
-    )
-
-    if is_simple:
-        suffixes = ["_11.A", "_11.C", "_11.F", "_11.H"]
-        model = args.model if args.model else ota_input
-
-        for suffix in suffixes:
-            current_prefix = ota_input + suffix
-            full_version = f"{current_prefix}.01_0001_197001010000"
-            print(f"Querying for {current_prefix}\n")
-
-            result = query_iot_server(full_version, model)
-            if result:
-                display_iot_result(result)
-                print()
-            else:
-                print("No Result\n")
-
-    else:
-        parts = ota_input.split("_")
-        model = args.model if args.model else parts[0]
-        full_version = (
-            f"{ota_input}.01_0001_197001010000" if len(parts) < 3 else ota_input
-        )
-
-        print(f"Querying for {ota_input}\n")
-
-        result = query_iot_server(full_version, model)
-        if result:
-            display_iot_result(result)
-        else:
-            print("No Result")
+    results = query_iot(args.ota_prefix, args.model)
+    has_result = False
+    for item in results:
+        print(f"Querying for {item['query']}\n")
+        if not item["found"]:
+            print("No Result\n")
+            continue
+        has_result = True
+        data = item["result"]
+        print("Fetch Info:")
+        print(f"• Link: {data['link']}")
+        print(f"• Changelog: {data['changelog']}")
+        print(f"• Security Patch: {data['security_patch']}")
+        print(f"• Version: {data['version']}")
+        print(f"• Ota Version: {data['ota_version']}\n")
+    return 0 if has_result else 1
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

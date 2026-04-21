@@ -6,6 +6,7 @@ Designed by Jerry Tse
 
 import argparse
 import base64
+import sys
 from datetime import datetime
 from urllib.parse import parse_qs, urlparse
 
@@ -47,21 +48,21 @@ def android_request(
             if attempt < max_retries - 1:
                 continue
             else:
-                print(f"❌ Timeout")
+                print("Timeout")
                 return None
 
         except requests.exceptions.ConnectionError as e:
             if attempt < max_retries - 1:
                 continue
             else:
-                print(f"❌ Error")
+                print("Error")
                 return None
 
         except requests.exceptions.RequestException as e:
             if attempt < max_retries - 1:
                 continue
             else:
-                print(f"❌ Failed")
+                print("Failed")
                 return None
 
     return None
@@ -100,7 +101,7 @@ def parse_expires_time(url):
 
         return {"timestamp": expires_timestamp, "expires_time": expires_time}
     except Exception as e:
-        print(f"❌ Cannot get expires: {e}")
+        print(f"Cannot get expires: {e}")
         return None
 
 
@@ -120,26 +121,23 @@ def get_redirect_url(url, market_name):
     )
 
     if response and response.status_code == 302:
-        redirect_url = response.headers.get("Location")
-
-        time_info = parse_expires_time(redirect_url)
-
-        print(f"\n✅ Success to resolve the URL:")
-        print("=" * 50)
-        print(redirect_url)
-        print("=" * 50)
-
-        if time_info:
-            print(
-                f"\n📅 Expire time(UTC+8): {time_info['expires_time'].strftime('%Y-%m-%d %H:%M:%S')}"
-            )
-        return redirect_url
-    else:
-        print("❌ Failed to resolve")
-        return None
+        return response.headers.get("Location")
+    return None
 
 
-if __name__ == "__main__":
+def resolve_url(url, market_name=""):
+    redirect_url = get_redirect_url(url, market_name)
+    if not redirect_url:
+        return {"success": False, "redirect_url": None, "expires_time": None}
+    time_info = parse_expires_time(redirect_url)
+    return {
+        "success": True,
+        "redirect_url": redirect_url,
+        "expires_time": time_info["expires_time"] if time_info else None,
+    }
+
+
+def main():
     parser = argparse.ArgumentParser(
         description="C16 URL Transfer Tool",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -154,13 +152,24 @@ Example:
     )
     args = parser.parse_args()
 
-    url = args.url
-    market_name = args.market_name
+    result = resolve_url(args.url, args.market_name)
 
-    redirect_url = get_redirect_url(url, market_name)
+    if result["success"]:
+        print("\nSuccess to resolve the URL:")
+        print("=" * 50)
+        print(result["redirect_url"])
+        print("=" * 50)
+        if result["expires_time"]:
+            print(
+                f"\nExpire time(UTC+8): {result['expires_time'].strftime('%Y-%m-%d %H:%M:%S')}"
+            )
+        print("DONE")
+        return 0
 
-    if redirect_url:
-        print("✅ DONE")
-    else:
-        print("❌ FAILED")
-        exit(1)
+    print("Failed to resolve")
+    print("FAILED")
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -446,7 +446,7 @@ def process_response(response: requests.Response, aes_key: bytes) -> QueryResult
         return QueryResult(False, status, error=f"Processing failed: {str(e)}")
 
 
-def display_result(result: QueryResult):
+def display_result(result: QueryResult) -> bool:
     if result.success:
         print("\nFetch Info:")
         components = result.components
@@ -482,6 +482,7 @@ def display_result(result: QueryResult):
                 print(f"• Opex Version Name: {opex.version_name}")
                 if i < len(result.opex_list) - 1:
                     print()
+        return True
     else:
         if result.response_code == 2004:
             print("\nNo Result")
@@ -497,11 +498,13 @@ def display_result(result: QueryResult):
             print(f"\nError: {result.error}")
         else:
             print("\nUnknown Error")
+        return False
 
 
-def auto_complete_query(base_ota_prefix: str, config: QueryConfig) -> None:
+def auto_complete_query(base_ota_prefix: str, config: QueryConfig) -> bool:
     suffixes = ["_11.A", "_11.C", "_11.F", "_11.H", "_11.J"]
     last_success_fake = None
+    has_success = False
 
     if config.graynew == 1:
         for suffix in suffixes:
@@ -550,8 +553,8 @@ def auto_complete_query(base_ota_prefix: str, config: QueryConfig) -> None:
             final_cfg.pre = "0"
 
             result_final = query_update(final_cfg)
-            display_result(result_final)
-        return
+            has_success = display_result(result_final) or has_success
+        return has_success
 
     if config.anti == 1:
         config.mode = "taste"
@@ -629,7 +632,8 @@ def auto_complete_query(base_ota_prefix: str, config: QueryConfig) -> None:
             if fake != "N/A":
                 last_success_fake = fake
 
-        display_result(result)
+        has_success = display_result(result) or has_success
+    return has_success
 
 
 def parse_args():
@@ -691,69 +695,71 @@ def parse_args():
     return args
 
 
+def run_tomboy_query(args) -> bool:
+    config = QueryConfig(
+        ota_version=args.ota_prefix,
+        model=args.model or "unknown",
+        region=args.region,
+        gray=args.gray,
+        mode=args.mode,
+        guid=args.guid,
+        components_input=args.components,
+        anti=args.anti,
+        has_custom_model=bool(args.model),
+        genshin=args.genshin,
+        pre=args.pre,
+        custom_language=args.custom_language,
+        nvid=args.nvid,
+        graynew=args.graynew,
+    )
+
+    ota_upper = args.ota_prefix.upper().replace("OVT", "Ovt")
+    processed_ota, processed_model = process_ota_version(
+        ota_upper, args.region, args.genshin, args.pre, args.model
+    )
+
+    config.ota_version = processed_ota
+    config.model = processed_model
+    config.region = args.region.lower()
+
+    is_simple_version = bool(
+        re.search(r"_\d{2}\.[A-Z]", ota_upper) or ota_upper.count("_") >= 3
+    )
+
+    if not is_simple_version:
+        return auto_complete_query(ota_upper, config)
+
+    print(f"Querying {config.region.upper()} update")
+    print(f"Device Model: {config.model}")
+    print(f"Full OTA Version: {config.ota_version}")
+    if config.guid == "0" * 64:
+        print("Using GUID: Default device ID")
+    else:
+        print(f"Using GUID: {config.guid[:16]}")
+
+    result = query_update(config)
+
+    if (
+        not result.success
+        and result.response_code == 2004
+        and config.region == "in"
+        and not config.has_custom_model
+    ):
+        config.model += "IN"
+        result = query_update(config)
+
+    return display_result(result)
+
+
 def main():
+    args = parse_args()
+    return 0 if run_tomboy_query(args) else 1
+
+
+if __name__ == "__main__":
     try:
-        args = parse_args()
-
-        config = QueryConfig(
-            ota_version=args.ota_prefix,
-            model=args.model or "unknown",
-            region=args.region,
-            gray=args.gray,
-            mode=args.mode,
-            guid=args.guid,
-            components_input=args.components,
-            anti=args.anti,
-            has_custom_model=bool(args.model),
-            genshin=args.genshin,
-            pre=args.pre,
-            custom_language=args.custom_language,
-            nvid=args.nvid,
-            graynew=args.graynew,
-        )
-
-        ota_upper = args.ota_prefix.upper().replace("OVT", "Ovt")
-        processed_ota, processed_model = process_ota_version(
-            ota_upper, args.region, args.genshin, args.pre, args.model
-        )
-
-        config.ota_version = processed_ota
-        config.model = processed_model
-        config.region = args.region.lower()
-
-        is_simple_version = bool(
-            re.search(r"_\d{2}\.[A-Z]", ota_upper) or ota_upper.count("_") >= 3
-        )
-
-        if not is_simple_version:
-            auto_complete_query(ota_upper, config)
-        else:
-            print(f"Querying {config.region.upper()} update")
-            print(f"Device Model: {config.model}")
-            print(f"Full OTA Version: {config.ota_version}")
-            if config.guid == "0" * 64:
-                print("Using GUID: Default device ID")
-            else:
-                print(f"Using GUID: {config.guid[:16]}")
-
-            result = query_update(config)
-
-            if (
-                not result.success
-                and result.response_code == 2004
-                and config.region == "in"
-                and not config.has_custom_model
-            ):
-                config.model += "IN"
-                result = query_update(config)
-
-            display_result(result)
-
+        sys.exit(main())
     except KeyboardInterrupt:
         sys.exit("\nInterrupted")
     except Exception as e:
         sys.exit(f"\nError: {e}")
-
-
-if __name__ == "__main__":
-    main()

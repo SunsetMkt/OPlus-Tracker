@@ -77,7 +77,7 @@ def parse_brand(brand_str: str) -> str:
     elif brand_lower == "realme":
         return "Realme"
     else:
-        sys.exit(
+        raise ValueError(
             f"Error: Invalid brand '{brand_str}'. Supported: OPPO, OnePlus, Realme"
         )
 
@@ -176,12 +176,10 @@ def execute_query_request(
             API_URL_QUERY, headers=headers, json=wrapped_data, timeout=30
         )
         if response.status_code != 200:
-            print(f"[!] Query failed with HTTP {response.status_code}")
-            sys.exit(1)
+            raise RuntimeError(f"[!] Query failed with HTTP {response.status_code}")
         resp_json = response.json()
         if "body" not in resp_json:
-            print("[!] Nothing in query response")
-            sys.exit(1)
+            raise RuntimeError("[!] Nothing in query response")
         encrypted_body = json.loads(resp_json["body"])
         decrypted_bytes = aes_ctr_decrypt(
             base64.b64decode(encrypted_body["cipher"]),
@@ -190,28 +188,24 @@ def execute_query_request(
         )
         decrypted_json = json.loads(decrypted_bytes.decode())
         return decrypted_json, aes_key, iv
-    except Exception:
-        print("[!] Query error, something was wrong in arguments")
-        sys.exit(1)
+    except Exception as e:
+        raise RuntimeError(f"[!] Query request/decode failed: {str(e)}") from e
 
 
 def execute_update_request(
     query_result: Dict[str, Any], config: Dict[str, str]
 ) -> Optional[Dict[str, Any]]:
     if "sota" not in query_result:
-        print("[!] No SOTA data found in query results")
-        sys.exit(1)
+        raise RuntimeError("[!] No SOTA data found in query results")
 
     sota_data = query_result["sota"]
     new_sota_version = sota_data.get("sotaVersion", "")
     if not new_sota_version:
-        print("[!] No SOTA version found in query results")
-        sys.exit(1)
+        raise RuntimeError("[!] No SOTA version found in query results")
 
     apk_modules = sota_data.get("moduleMap", {}).get("apk", [])
     if not apk_modules:
-        print("[!] No APK modules found in query results")
-        sys.exit(1)
+        raise RuntimeError("[!] No APK modules found in query results")
 
     # Generate lower version numbers for update request
     sau_modules = []
@@ -264,12 +258,10 @@ def execute_update_request(
             API_URL_UPDATE, headers=headers, json=wrapped_data, timeout=30
         )
         if response.status_code != 200:
-            print(f"[!] Update request failed with HTTP {response.status_code}")
-            sys.exit(1)
+            raise RuntimeError(f"[!] Update request failed with HTTP {response.status_code}")
         resp_json = response.json()
         if "body" not in resp_json:
-            print("[!] Nothing in update response")
-            sys.exit(1)
+            raise RuntimeError("[!] Nothing in update response")
         encrypted_body = json.loads(resp_json["body"])
         decrypted_bytes = aes_ctr_decrypt(
             base64.b64decode(encrypted_body["cipher"]),
@@ -279,11 +271,10 @@ def execute_update_request(
         decrypted_json = json.loads(decrypted_bytes.decode())
         return decrypted_json
     except Exception as e:
-        print(f"[!] Update error: {str(e)}")
         import traceback
 
         traceback.print_exc()
-        return None
+        raise RuntimeError(f"[!] Update error: {str(e)}") from e
 
 
 def fetch_sota_description(
@@ -423,47 +414,83 @@ def print_changelog(sota_version: str, description_response: Dict):
             pass
 
 
-def main(args):
-    if not all([args.brand, args.ota_version, args.coloros]):
-        print("❌ Error: All parameters are required")
-        print("\nUsage Example:")
-        print("  python3 sota_query.py --brand OnePlus \\")
-        print(
-            "                       --ota-version PJX110_11.F.13_2130_202512181912 \\"
-        )
-        print("                       --coloros ColorOS16.0.0 \\")
-        return
-
-    brand = parse_brand(args.brand)
-
+def run_sota_changelog_query(brand: str, ota_version: str, coloros: str):
+    brand = parse_brand(brand)
     config = {
         "brand": brand,
-        "ota_version": args.ota_version,
-        "model": args.ota_version.split("_")[0],
-        "coloros": args.coloros,
+        "ota_version": ota_version,
+        "model": ota_version.split("_")[0],
+        "coloros": coloros,
         "rom_version": "unknown",
     }
-
-    print(f"Device: {config['model']}")
-    print(f"OS: {config['coloros'].replace('ColorOS', 'ColorOS ')}")
-    print()
-
     query_result, _, _ = execute_query_request(config)
-    if query_result is None:
-        return
-
     update_result = execute_update_request(query_result, config)
-    if update_result is None:
-        return
-
     sota_version, modules_list = extract_apk_modules(update_result)
     if not modules_list:
-        print("No available SOTA Update")
-        return
-
+        return {
+            "config": config,
+            "sota_version": sota_version,
+            "output_lines": ["No available SOTA Update"],
+        }
     description_response = fetch_sota_description(modules_list, sota_version, config)
+    lines = build_changelog_lines(sota_version, description_response)
+    return {"config": config, "sota_version": sota_version, "output_lines": lines}
 
-    print_changelog(sota_version, description_response)
+
+def build_changelog_lines(sota_version: str, description_response: Dict) -> List[str]:
+    lines = []
+    if not description_response:
+        return ["Not found SOTA changelog"]
+
+    body_str = description_response.get("body")
+    if body_str:
+        try:
+            data = json.loads(body_str)
+        except Exception:
+            data = description_response
+    else:
+        data = description_response
+
+    module_map = data.get("moduleMap", {})
+    apk_modules = module_map.get("apk", [])
+    if not apk_modules:
+        return ["Not found apk changelog"]
+
+    lines.append(f"Get SOTA Changelog from {sota_version}\n")
+    for module in apk_modules:
+        desc_str = module.get("description", "{}")
+        try:
+            desc = json.loads(desc_str)
+        except Exception:
+            continue
+        title = desc.get("title")
+        content_list = desc.get("content", [])
+        if not content_list:
+            continue
+        lines.append(title)
+        for item in content_list:
+            data_text = item.get("data", "")
+            if data_text:
+                lines.append(data_text)
+        lines.append("")
+
+    default_desc = data.get("defaultDescription")
+    if default_desc:
+        desc_str = default_desc.get("description", "{}")
+        try:
+            desc = json.loads(desc_str)
+            title = desc.get("title")
+            content_list = desc.get("content", [])
+            if content_list:
+                lines.append(title)
+                for item in content_list:
+                    data_text = item.get("data", "")
+                    if data_text:
+                        lines.append(data_text)
+                lines.append("")
+        except Exception:
+            pass
+    return lines
 
 
 def parse_args():
@@ -488,28 +515,24 @@ Usage Example:
     parser.add_argument(
         "--coloros", required=True, help="ColorOS version (e.g., ColorOS16.0.0)"
     )
-
-    try:
-        return parser.parse_args()
-    except SystemExit:
-        print("\nUsage Example:")
-        print("  python3 sota_query.py --brand OnePlus \\")
-        print(
-            "                       --ota-version PJX110_11.F.13_2130_202512181912 \\"
-        )
-        print("                       --coloros ColorOS16.0.0 \\")
-        sys.exit(1)
+    return parser.parse_args()
 
 
 if __name__ == "__main__":
-    args = parse_args()
     try:
-        main(args)
+        args = parse_args()
+        result = run_sota_changelog_query(args.brand, args.ota_version, args.coloros)
+        print(f"Device: {result['config']['model']}")
+        print(f"OS: {result['config']['coloros'].replace('ColorOS', 'ColorOS ')}")
+        print()
+        for line in result["output_lines"]:
+            print(line)
+        sys.exit(0)
     except KeyboardInterrupt:
-        print("\n\n⚠️  Script interrupted by user")
+        print("\n\nScript interrupted by user")
         sys.exit(0)
     except Exception as e:
-        print(f"\n❌ Unexpected error: {str(e)}")
+        print(f"\nUnexpected error: {str(e)}")
         import traceback
 
         traceback.print_exc()
