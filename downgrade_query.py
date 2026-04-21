@@ -69,6 +69,93 @@ def decrypt_aes_gcm(cipher_b64: str, iv_b64: str, key: bytes) -> Optional[bytes]
         return None
 
 
+def query_downgrade(ota_prefix: str, prj_num: str, sn_num: str, duid: str, debug: int = 0):
+    ota_version = ota_prefix.upper()
+    if "_11." not in ota_version:
+        raise ValueError(
+            f"OTA_Prefix '{ota_version}' must contain '_11.' (e.g., PKX110_11.C)."
+        )
+    if not prj_num.isdigit() or len(prj_num) != 5:
+        raise ValueError(f"PrjNum '{prj_num}' must be exactly 5 digits.")
+    if len(duid) != 64:
+        raise ValueError(f"DUID length is {len(duid)}, expected 64 characters.")
+
+    model = ota_version.split("_")[0]
+    requests.packages.urllib3.disable_warnings()
+    carriers = ["10010111", "10011000"]
+    for idx, current_carrier in enumerate(carriers):
+        session_key = os.urandom(32)
+        iv = os.urandom(12)
+        try:
+            protected_key = get_protected_key(session_key)
+            encrypted_device_id_obj = encrypt_aes_gcm(duid, session_key, iv)
+            payload = {
+                "model": model,
+                "nvCarrier": current_carrier,
+                "prjNum": prj_num,
+                "serialNo": sn_num,
+                "otaVersion": ota_version,
+                "deviceId": encrypted_device_id_obj,
+            }
+            cipher_info = {
+                "downgrade-server": {
+                    "negotiationVersion": NEGOTIATION_VERSION,
+                    "protectedKey": protected_key,
+                    "version": str(int(time.time())),
+                }
+            }
+            headers = {
+                "Host": "downgrade.coloros.com",
+                "Content-Type": "application/json; charset=UTF-8",
+                "cipherInfo": json.dumps(cipher_info),
+                "deviceId": duid,
+                "Connection": "close",
+            }
+            resp = requests.post(
+                URL, headers=headers, json=payload, timeout=20, verify=False
+            )
+            if resp.status_code == 200:
+                resp_json = resp.json()
+                if isinstance(resp_json, dict) and resp_json.get("code") == 1004:
+                    return {"ota_version": ota_version, "packages": [], "error": "DUID query GUID is empty"}
+                final_data = None
+                if "cipher" in resp_json:
+                    decrypted_bytes = decrypt_aes_gcm(
+                        resp_json["cipher"], resp_json["iv"], session_key
+                    )
+                    if decrypted_bytes:
+                        try:
+                            final_data = json.loads(decrypted_bytes)
+                        except Exception:
+                            pass
+                else:
+                    final_data = resp_json
+                if final_data and "data" in final_data and final_data["data"]:
+                    pkg_list = final_data["data"].get("downgradeVoList")
+                    if pkg_list:
+                        return {
+                            "ota_version": ota_version,
+                            "packages": pkg_list,
+                            "meta_data": final_data["data"].get("metaData"),
+                            "debug": debug,
+                            "error": None,
+                        }
+                if idx == 0:
+                    time.sleep(1)
+                    continue
+                return {"ota_version": ota_version, "packages": [], "error": "No Downgrade Package"}
+            if idx == 0:
+                time.sleep(1)
+                continue
+            return {"ota_version": ota_version, "packages": [], "error": f"[!] Server returned HTTP {resp.status_code}"}
+        except Exception as e:
+            if idx == 0:
+                time.sleep(1.5)
+                continue
+            return {"ota_version": ota_version, "packages": [], "error": f"[!] Error: {e}"}
+    return {"ota_version": ota_version, "packages": [], "error": "No Downgrade Package"}
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="ColorOS Downgrade Query Tool",
@@ -106,152 +193,49 @@ Examples:
     )
     args = parser.parse_args()
 
-    debug = args.debug
-    ota_version = args.ota_prefix.upper()
-    prj_num = args.prj_num
-    sn_num = args.sn_num
-    duid = args.duid
-
-    # Validate arguments
-    if "_11." not in ota_version:
-        parser.error(
-            f"OTA_Prefix '{ota_version}' must contain '_11.' (e.g., PKX110_11.C)."
+    try:
+        result = query_downgrade(
+            args.ota_prefix, args.prj_num, args.sn_num, args.duid, args.debug
         )
+    except ValueError as e:
+        parser.error(str(e))
 
-    if not prj_num.isdigit() or len(prj_num) != 5:
-        parser.error(f"PrjNum '{prj_num}' must be exactly 5 digits.")
-
-    if len(duid) != 64:
-        parser.error(f"DUID length is {len(duid)}, expected 64 characters.")
-
-    model = ota_version.split("_")[0]
-    requests.packages.urllib3.disable_warnings()
-
-    print(f"Querying downgrade for {ota_version}\n")
-
-    carriers = ["10010111", "10011000"]
-
-    for idx, current_carrier in enumerate(carriers):
-        session_key = os.urandom(32)
-        iv = os.urandom(12)
-
-        try:
-            protected_key = get_protected_key(session_key)
-            encrypted_device_id_obj = encrypt_aes_gcm(duid, session_key, iv)
-
-            payload = {
-                "model": model,
-                "nvCarrier": current_carrier,
-                "prjNum": prj_num,
-                "serialNo": sn_num,
-                "otaVersion": ota_version,
-                "deviceId": encrypted_device_id_obj,
-            }
-
-            cipher_info = {
-                "downgrade-server": {
-                    "negotiationVersion": NEGOTIATION_VERSION,
-                    "protectedKey": protected_key,
-                    "version": str(int(time.time())),
-                }
-            }
-
-            headers = {
-                "Host": "downgrade.coloros.com",
-                "Content-Type": "application/json; charset=UTF-8",
-                "cipherInfo": json.dumps(cipher_info),
-                "deviceId": duid,
-                "Connection": "close",
-            }
-
-            resp = requests.post(
-                URL, headers=headers, json=payload, timeout=20, verify=False
+    print(f"Querying downgrade for {result['ota_version']}\n")
+    if result["packages"]:
+        pkg_list = result["packages"]
+        for i, pkg in enumerate(pkg_list):
+            print("Fetch Info:")
+            print(f"• Link: {pkg.get('downloadUrl', 'N/A')}")
+            print(f"• Changelog: {pkg.get('versionIntroduction', 'N/A')}")
+            print(
+                f"• Version: {pkg.get('colorosVersion', '')} ({pkg.get('androidVersion', '')})"
             )
-
-            if resp.status_code == 200:
-                resp_json = resp.json()
-
-                if isinstance(resp_json, dict) and resp_json.get("code") == 1004:
-                    print("DUID query GUID is empty")
-                    return
-
-                final_data = None
-                if "cipher" in resp_json:
-                    decrypted_bytes = decrypt_aes_gcm(
-                        resp_json["cipher"], resp_json["iv"], session_key
-                    )
-                    if decrypted_bytes:
-                        try:
-                            final_data = json.loads(decrypted_bytes)
-                        except:
-                            pass
-                else:
-                    final_data = resp_json
-
-                if final_data:
-                    has_data = False
-                    if "data" in final_data and final_data["data"]:
-                        pkg_list = final_data["data"].get("downgradeVoList")
-                        if pkg_list:
-                            has_data = True
-                            for i, pkg in enumerate(pkg_list):
-                                print("Fetch Info:")
-                                print(f"• Link: {pkg.get('downloadUrl', 'N/A')}")
-                                print(
-                                    f"• Changelog: {pkg.get('versionIntroduction', 'N/A')}"
-                                )
-                                print(
-                                    f"• Version: {pkg.get('colorosVersion', '')} ({pkg.get('androidVersion', '')})"
-                                )
-                                print(f"• Ota Version: {pkg.get('otaVersion', 'N/A')}")
-                                print(f"• MD5: {pkg.get('fileMd5', 'N/A')}")
-                                file_size = pkg.get("fileSize")
-                                if file_size is not None:
-                                    try:
-                                        size_mb = int(file_size) / 1024 / 1024
-                                        print(
-                                            f"• File Size: {file_size} Byte ({size_mb:.0f}M)"
-                                        )
-                                    except:
-                                        print(f"• File Size: {file_size} Byte (N/A)")
-                                else:
-                                    print("• File Size: N/A")
-                                if i < len(pkg_list) - 1 or debug:
-                                    print()
-
-                            if debug == 1 and final_data["data"].get("metaData"):
-                                print(f"Metadata:\n{final_data['data']['metaData']}")
-
-                            return
-
-                    if idx == 0:
-                        time.sleep(1)
-                        continue
-                    else:
-                        print("No Downgrade Package")
-                else:
-                    print("No Downgrade Package")
-
+            print(f"• Ota Version: {pkg.get('otaVersion', 'N/A')}")
+            print(f"• MD5: {pkg.get('fileMd5', 'N/A')}")
+            file_size = pkg.get("fileSize")
+            if file_size is not None:
+                try:
+                    size_mb = int(file_size) / 1024 / 1024
+                    print(f"• File Size: {file_size} Byte ({size_mb:.0f}M)")
+                except Exception:
+                    print(f"• File Size: {file_size} Byte (N/A)")
             else:
-                if idx == 0:
-                    time.sleep(1)
-                    continue
-                print(f"[!] Server returned HTTP {resp.status_code}")
-
-        except Exception as e:
-            if idx == 0:
-                time.sleep(1.5)
-                continue
-            print(f"[!] Error: {e}")
-            break
+                print("• File Size: N/A")
+            if i < len(pkg_list) - 1 or args.debug:
+                print()
+        if args.debug == 1 and result.get("meta_data"):
+            print(f"Metadata:\n{result['meta_data']}")
+        return 0
+    print(result["error"] or "No Downgrade Package")
+    return 1
 
 
 if __name__ == "__main__":
     try:
-        main()
+        sys.exit(main())
     except KeyboardInterrupt:
-        print("\n\n⚠️  Script interrupted by user")
+        print("\n\nScript interrupted by user")
         sys.exit(0)
     except Exception as e:
-        print(f"\n❌ Unexpected error: {str(e)}")
+        print(f"\nUnexpected error: {str(e)}")
         sys.exit(1)

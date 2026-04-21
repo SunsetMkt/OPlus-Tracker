@@ -73,7 +73,7 @@ def parse_brand(brand_str: str) -> str:
     elif brand_lower == "realme":
         return "Realme"
     else:
-        sys.exit(
+        raise ValueError(
             f"\nError: Invalid brand '{brand_str}'. Supported: OPPO, OnePlus, Realme"
         )
 
@@ -158,16 +158,8 @@ def build_headers(
 
 def query_opex(
     ota_version: str, os_version: str, brand: str, android_version: str
-) -> None:
+) -> Dict:
     model = extract_model_from_ota_version(ota_version)
-
-    # Cosmetic: Add space between ColorOS and version number
-    display_os = os_version.replace("ColorOS", "ColorOS ")
-
-    print(f"Querying Opex updates")
-    print(f"Model: {model}")
-    print(f"Brand: {brand}")
-    print(f"OS: {display_os}")
 
     url = f"https://{OPEX_CONFIG_CN['host']}{OPEX_CONFIG_CN['endpoint']}"
     max_retries = 10
@@ -225,8 +217,7 @@ def query_opex(
                     or resp_json.get("error")
                     or "Unknown Error"
                 )
-                print(f"\nAPI Error (Code {code}): {msg}")
-                return
+                return {"model": model, "error": f"API Error (Code {code}): {msg}"}
 
             # Decrypt response
             encrypted_body = resp_json
@@ -237,15 +228,14 @@ def query_opex(
             )
             body = json.loads(decrypted_bytes.decode())
 
-            # Parse and print results
-            process_result(body)
-            return  # Exit function on success
+            return {"model": model, "error": None, "opex_list": process_result(body)}
 
         except Exception as e:
             if attempt < max_retries - 1:
                 time.sleep(2 * (attempt + 1))
             else:
-                return
+                return {"model": model, "error": str(e), "opex_list": []}
+    return {"model": model, "error": "Max retries exceeded", "opex_list": []}
 
 
 def process_result(body: Dict):
@@ -277,16 +267,20 @@ def process_result(body: Dict):
                 )
             )
 
-    if opex_list:
-        print("\nOpex Info:")
-        for i, opex in enumerate(opex_list):
-            print(f"• Link: {opex.auto_url}")
-            print(f"• Zip Hash: {opex.zip_hash}")
-            print(f"• Opex Codename: {opex.business_code}")
-            if i < len(opex_list) - 1:
-                print()
-    else:
-        print("\nNo Opex updates found.")
+    return opex_list
+
+
+def run_opex_query(ota_version: str, info: str) -> Dict:
+    parts = info.split(",")
+    if len(parts) != 2:
+        raise ValueError("--info must be in format 'osVersion,brand'")
+    os_ver_raw, brand_raw = parts
+    os_version = parse_os_version(os_ver_raw)
+    brand = parse_brand(brand_raw)
+    android_version = "Android" + os_ver_raw
+    query_result = query_opex(ota_version, os_version, brand, android_version)
+    query_result.update({"brand": brand, "os_version": os_version})
+    return query_result
 
 
 def main():
@@ -309,26 +303,42 @@ def main():
     # Critical change: Print help doc (including Example) and exit if no args provided
     if len(sys.argv) == 1:
         parser.print_help()
-        sys.exit(1)
+        return 1
 
     args = parser.parse_args()
 
-    parts = args.info.split(",")
-    if len(parts) != 2:
+    if len(args.info.split(",")) != 2:
         print("Error: --info must be in format 'osVersion,brand'")
         print(example_text)
-        sys.exit(1)
-
-    os_ver_raw, brand_raw = parts
-    os_version = parse_os_version(os_ver_raw)
-    brand = parse_brand(brand_raw)
-    android_version = "Android" + os_ver_raw
+        return 1
 
     if args.ota_version.count("_") < 3:
         print("\nWarning: Opex query typically requires a complete OTA version string.")
 
-    query_opex(args.ota_version, os_version, brand, android_version)
+    result = run_opex_query(args.ota_version, args.info)
+    print("Querying Opex updates")
+    print(f"Model: {result['model']}")
+    print(f"Brand: {result['brand']}")
+    print(f"OS: {result['os_version'].replace('ColorOS', 'ColorOS ')}")
+
+    if result.get("error"):
+        print(f"\n{result['error']}")
+        return 1
+
+    opex_list = result.get("opex_list", [])
+    if not opex_list:
+        print("\nNo Opex updates found.")
+        return 1
+
+    print("\nOpex Info:")
+    for i, opex in enumerate(opex_list):
+        print(f"• Link: {opex.auto_url}")
+        print(f"• Zip Hash: {opex.zip_hash}")
+        print(f"• Opex Codename: {opex.business_code}")
+        if i < len(opex_list) - 1:
+            print()
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
