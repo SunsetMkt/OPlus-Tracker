@@ -6,6 +6,7 @@ Designed by Jerry Tse
 
 import argparse
 import base64
+import io
 import json
 import os
 import random
@@ -13,6 +14,7 @@ import re
 import string
 import sys
 import time
+from contextlib import redirect_stdout
 from dataclasses import dataclass
 from typing import Dict
 
@@ -291,7 +293,7 @@ def process_result(body: Dict):
         print("\nNo Opex updates found.")
 
 
-def main(argv=None) -> int:
+def _main_impl(argv=None) -> int:
     example_text = """Example:
   python3 opex_query.py PJZ110_11.C.84_1840_202601060309 --info 16,oneplus"""
 
@@ -338,5 +340,20 @@ def main(argv=None) -> int:
     return 0 if query_opex(args.ota_version, os_version, brand, android_version) else 1
 
 
+def main(argv=None):
+    output_buffer = io.StringIO()
+    with redirect_stdout(output_buffer):
+        exit_code = _main_impl(argv)
+
+    return {
+        "success": exit_code == 0,
+        "exit_code": exit_code,
+        "output": output_buffer.getvalue(),
+    }
+
+
 if __name__ == "__main__":
-    sys.exit(main())
+    result = main()
+    if result.get("output"):
+        print(result["output"], end="")
+    sys.exit(result["exit_code"])

@@ -6,10 +6,12 @@ Designed by Jerry Tse
 
 import argparse
 import base64
+import io
 import json
 import os
 import sys
 import time
+from contextlib import redirect_stdout
 from typing import Any, Dict, List, Optional, Tuple
 
 import requests
@@ -399,7 +401,7 @@ def print_formatted_output(sota_version: str, formatted_lines: List[str]):
 # --- Main Execution ---
 
 
-def main(args) -> int:
+def _main_impl(args) -> int:
     """Main execution: run query, then update, then format output"""
 
     if not all([args.brand, args.ota_version, args.coloros]):
@@ -494,12 +496,28 @@ Usage Example:
         raise
 
 
+def main(argv=None):
+    output_buffer = io.StringIO()
+    with redirect_stdout(output_buffer):
+        try:
+            args = parse_args(argv)
+            exit_code = _main_impl(args)
+        except ValueError:
+            exit_code = 1
+
+    return {
+        "success": exit_code == 0,
+        "exit_code": exit_code,
+        "output": output_buffer.getvalue(),
+    }
+
+
 if __name__ == "__main__":
     try:
-        args = parse_args()
-        sys.exit(main(args))
-    except ValueError:
-        sys.exit(1)
+        result = main()
+        if result.get("output"):
+            print(result["output"], end="")
+        sys.exit(result["exit_code"])
     except KeyboardInterrupt:
         print("\n\n⚠️  Script interrupted by user")
         sys.exit(0)

@@ -7,6 +7,7 @@ Designed by: Jerry Tse
 import argparse
 import base64
 import binascii
+import io
 import json
 import os
 import random
@@ -14,6 +15,7 @@ import re
 import string
 import sys
 import time
+from contextlib import redirect_stdout
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
@@ -691,7 +693,12 @@ def parse_args():
     return args
 
 
-def main() -> int:
+def _main_impl(argv=None) -> int:
+    old_argv = None
+    if argv is not None:
+        old_argv = sys.argv
+        sys.argv = [sys.argv[0], *argv]
+
     try:
         args = parse_args()
 
@@ -756,7 +763,25 @@ def main() -> int:
     except Exception as e:
         print(f"\nError: {e}")
         return 1
+    finally:
+        if old_argv is not None:
+            sys.argv = old_argv
+
+
+def main(argv=None):
+    output_buffer = io.StringIO()
+    with redirect_stdout(output_buffer):
+        exit_code = _main_impl(argv)
+
+    return {
+        "success": exit_code == 0,
+        "exit_code": exit_code,
+        "output": output_buffer.getvalue(),
+    }
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    result = main()
+    if result.get("output"):
+        print(result["output"], end="")
+    sys.exit(result["exit_code"])
