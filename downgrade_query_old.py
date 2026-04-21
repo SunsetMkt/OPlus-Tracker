@@ -69,7 +69,7 @@ def decrypt_aes_gcm(cipher_b64: str, iv_b64: str, key: bytes) -> Optional[bytes]
         return None
 
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(
         description="ColorOS Downgrade Query Tool",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -88,7 +88,7 @@ Example:
         metavar="PrjNum",
         help="Project number, exactly 5 digits (e.g., 24821)",
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     ota_version = args.ota_prefix.upper()
     prj_num = args.prj_num
@@ -106,6 +106,7 @@ Example:
     print(f"Querying downgrade for {ota_version}\n")
 
     carriers = ["10010111", "10011000"]
+    found_packages = []
 
     for idx, current_carrier in enumerate(carriers):
         session_key = os.urandom(32)
@@ -165,6 +166,7 @@ Example:
                         pkg_list = final_data["data"].get("downgradeVoList")
                         if pkg_list:
                             has_data = True
+                            found_packages.extend(pkg_list)
                             for i, pkg in enumerate(pkg_list):
                                 print("Fetch Info:")
                                 print(f"• Link: {pkg.get('downloadUrl', 'N/A')}")
@@ -192,7 +194,7 @@ Example:
                                 if i < len(pkg_list) - 1:
                                     print()
 
-                            return
+                            return {"success": True, "packages": found_packages}
 
                     if idx == 0:
                         time.sleep(1)
@@ -214,10 +216,13 @@ Example:
             print(f"[!] Network Error: {e}")
             break
 
+    return {"success": False, "packages": found_packages, "reason": "not_found"}
+
 
 if __name__ == "__main__":
     try:
-        main()
+        result = main()
+        sys.exit(0 if result.get("success") else 1)
     except KeyboardInterrupt:
         print("\n\n⚠️  Script interrupted by user")
         sys.exit(0)
