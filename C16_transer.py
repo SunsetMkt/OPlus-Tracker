@@ -6,6 +6,7 @@ Designed by Jerry Tse
 
 import argparse
 import base64
+import sys
 from datetime import datetime
 from urllib.parse import parse_qs, urlparse
 
@@ -139,7 +140,7 @@ def get_redirect_url(url, market_name):
         return None
 
 
-if __name__ == "__main__":
+def main(argv=None):
     parser = argparse.ArgumentParser(
         description="C16 URL Transfer Tool",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -152,7 +153,7 @@ Example:
     parser.add_argument(
         "market_name", nargs="?", default="", help="Optional market name"
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     url = args.url
     market_name = args.market_name
@@ -161,6 +162,12 @@ Example:
 
     if redirect_url:
         print("✅ DONE")
+        return {"success": True, "redirect_url": redirect_url}
     else:
         print("❌ FAILED")
-        exit(1)
+        return {"success": False, "redirect_url": None}
+
+
+if __name__ == "__main__":
+    result = main()
+    sys.exit(0 if result["success"] else 1)
