@@ -1,12 +1,12 @@
 <div align="center">
-<br>
-<table>
-<tr>
-<td valign="center"><img src="https://github.com/twitter/twemoji/blob/master/assets/svg/1f1fa-1f1f8.svg" width="16"/> English</td>
-<td valign="center"><a href="README_zh-cn.md"><img src="https://em-content.zobj.net/thumbs/120/twitter/351/flag-china_1f1e8-1f1f3.png" width="16"/> 简体中文</a></td>
-</tr>
-</table>
-<br>
+    <br>
+    <table>
+        <tr>
+            <td valign="center"><a href="README.md"><img src="https://github.com/twitter/twemoji/blob/master/assets/svg/1f1fa-1f1f8.svg" width="16"/>English</a></td>
+            <td valign="center"><a href="README_zh-cn.md"><img src="https://em-content.zobj.net/thumbs/120/twitter/351/flag-china_1f1e8-1f1f3.png" width="16"/>简体中文</a></td>
+        </tr>
+    </table>
+    <br>
 </div>
 
 # OPlus Tracker
@@ -15,32 +15,36 @@ Collection of tools for querying and resolving OTA / SOTA / OPEX / IOT / Downgra
 
 Current scripts:
 
-- `C16_transer.py`     → resolves dynamic download links (ColorOS 16+)
-- `tomboy_pro.py`      → main OTA query tool (full / delta / gray / preview / anti-query bypass)
-- `opex_query.py`      → dedicated OPEX query (CN only)
-- `sota_query.py`      → SOTA (Software OTA / modular APK) query (CN only yet)
-- `sota_changelog_query.py`      → SOTA (Software OTA / modular APK) Changelog query (CN only yet)
-- `iot_query.py`       → legacy & IoT server query (CN only)
+- `C16_transer.py` → resolves dynamic download links (ColorOS 16+)
+- `tomboy_pro.py` → main OTA query tool (full / delta / gray / preview / anti-query bypass)
+- `opex_query.py` → dedicated OPEX query (CN only)
+- `sota_query.py` → SOTA (Software OTA / modular APK) query (CN only yet)
+- `sota_changelog_query.py` → SOTA (Software OTA / modular APK) Changelog query (CN only yet)
+- `iot_query.py` → legacy & IoT server query (CN only)
 - `downgrade_query.py` → query official downgrade packages (CN only)
 - `realme_edl_query.py` → query official EDL packages for Realme
 - `changelog_query.py` → query specific version changelog
-- `config.py`      → configuration for public keys, server addresses, and API endpoints.
+- `config.py` → configuration for public keys, server addresses, and API endpoints.
 
 ## `C16_transer.py`
 
 ### Features
+
 - Resolve dynamic links with `downloadCheck?`
 - Displays final download link + expiration time
 
 ### Dependencies
+
 - `requests`
 
 Install:
+
 ```bash
 pip install requests
 ```
 
 ### Usage
+
 ```bash
 python C16_transer.py "https://gauss-componentotacostmanual-cn.allawnfs.com/.../downloadCheck?Expires=1767225599&..."
 ```
@@ -50,12 +54,14 @@ python C16_transer.py "https://gauss-componentotacostmanual-cn.allawnfs.com/.../
 Main advanced OTA query tool — supports full ROM, delta updates, gray channel, preview builds, Genshin editions, anti-query bypass (post-Oct 2025), etc.
 
 ### Main Features
+
 - Auto suffix completion (`_11.A` / `_11.C` / `_11.F` / `_11.H` / `_11.J`)
 - Modes: `manual`, `client_auto`, `server_auto`, `taste`
 - `--anti 1` bypass for ColorOS 16 restricted models
 - Delta OTA via `--components`
 
 ### Dependencies
+
 ```text
 requests
 cryptography
@@ -66,29 +72,33 @@ pip install -r requirements.txt
 ```
 
 ### Usage
+
 ```bash
 python tomboy_pro.py <OTA_PREFIX> <REGION> [options]
 ```
 
-**Positional**  
-- `<OTA_PREFIX>`     `PJX110` / `PJX110_11.A` / `PJX110_11.C.36_...`  
-- `<REGION>`         `cn` `cn_cmcc` `eu` `in` `sg` `ru` `tr` `th` `gl` `tw` `my` `vn` `id` `sa` `mea` `ph` `la` `br` `roe`
+#### Positional
 
-**Popular flags**
-| Flag              | Meaning                                          | Example / Note                       |
-|-------------------|--------------------------------------------------|--------------------------------------|
-| `--model`         | Force model                                      | `--model PJX110`                     |
-| `--gray 1`        | Test channel (mainly Realme, few OPlus)          |                                      |
-| `--mode taste`    | Often used with `--anti 1`                       |                                      |
-| `--genshin 1/2`   | Genshin edition (YS / Ovt suffix)                |                                      |
-| `--pre 1`         | Preview build (needs `--guid`)                   |                                      |
-| `--guid 64hex`    | 64-char device GUID                              | Required for pre/taste               |
-| `--components`    | Delta query (name:fullversion,...)               | `--components System:PJX110_11...`   |
-| `--anti 1`        | Bypass ColorOS 16 query restriction (~Oct 2025)  | Usually + `--mode taste`             |
-| `--nvid 8digit`    | Use custom NV Carrier ID to query                |                                      |
-| `--graynew 1`     | Query FWs not in taste mode but in gray server     |                                      |
+- `<OTA_PREFIX>` `PJX110` / `PJX110_11.A` / `PJX110_11.C.36_...`
+- `<REGION>` `cn` `cn_cmcc` `eu` `in` `sg` `ru` `tr` `th` `gl` `tw` `my` `vn` `id` `sa` `mea` `ph` `la` `br` `roe`
 
-**Examples**
+#### Popular flags
+
+| Flag            | Meaning                                         | Example / Note                     |
+| --------------- | ----------------------------------------------- | ---------------------------------- |
+| `--model`       | Force model                                     | `--model PJX110`                   |
+| `--gray 1`      | Test channel (mainly Realme, few OPlus)         |                                    |
+| `--mode taste`  | Often used with `--anti 1`                      |                                    |
+| `--genshin 1/2` | Genshin edition (YS / Ovt suffix)               |                                    |
+| `--pre 1`       | Preview build (needs `--guid`)                  |                                    |
+| `--guid 64hex`  | 64-char device GUID                             | Required for pre/taste             |
+| `--components`  | Delta query (name:fullversion,...)              | `--components System:PJX110_11...` |
+| `--anti 1`      | Bypass ColorOS 16 query restriction (~Oct 2025) | Usually + `--mode taste`           |
+| `--nvid 8digit` | Use custom NV Carrier ID to query               |                                    |
+| `--graynew 1`   | Query FWs not in taste mode but in gray server  |                                    |
+
+#### Examples
+
 ```bash
 # Basic CN query
 python tomboy_pro.py PJX110_11.A cn
@@ -113,6 +123,7 @@ python tomboy_pro.py RMX3301_11.H sg --nvid 00011011
 Dedicated tool to query **OPEX** (mainly ColorOS CN variants).
 
 ### Usage
+
 ```bash
 python opex_query.py <FULL_OTA_VERSION> --info <OS_VERSION>,<BRAND>
 
@@ -128,6 +139,7 @@ python opex_query.py RMX5200_11.A.63_... --info 16,realme
 Queries **SOTA** (Software OTA) — mainly for CN ColorOS System APPs updates.
 
 ### Usage
+
 ```bash
 python sota_query.py --brand BRAND --ota-version OTA_VERSION --coloros COLOROS
 
@@ -142,6 +154,7 @@ python sota_query.py --brand OnePlus --ota-version PJX110_11.F.15_2150_202602051
 Queries **SOTA** (Software OTA) changelog — mainly for CN ColorOS System APPs updates.
 
 ### Usage
+
 ```bash
 python sota_query.py --brand BRAND --ota-version OTA_VERSION --coloros COLOROS
 
@@ -157,6 +170,7 @@ Query tool using the old **iota.coloros.com** special server (CN only).
 Often returns older or special builds no longer available through normal channels.
 
 ### Usage
+
 ```bash
 python iot_query.py <OTA_PREFIX> cn [options]
 
@@ -173,21 +187,25 @@ Query official **downgrade packages** from `downgrade.coloros.com` (CN only).
 Useful when you need older official firmware versions that are still signed and allowed for downgrade.
 
 ### Features
+
 - Uses AES-256-GCM + RSA-OAEP encryption (matches official downgrade server)
-- Requires real **DUID** (64-char SHA256 string from *#6776#)
+- Requires real **DUID** (64-char SHA256 string from \*#6776#)
 - Needs **PrjNum** (5-digit project number)
 - Returns download URL, changelog, version info, MD5, publish time
 
 ### Dependencies
+
 - `requests`
 - `cryptography`
 
 Install:
+
 ```bash
 pip install requests cryptography
 ```
 
 ### Usage of `downgrade_query.py`
+
 ```bash
 python downgrade_query.py <OTA_PREFIX> <PrjNum> <snNum> <DUID> [--debug 0/1]
 
@@ -195,15 +213,17 @@ python downgrade_query.py <OTA_PREFIX> <PrjNum> <snNum> <DUID> [--debug 0/1]
 python downgrade_query.py PKX110_11.C 24821 a1b2c3e4 498A44DF1BEC4EB19FBCB3A870FCACB4EC7D424979CC9C517FE7B805A1937746
 ```
 
-**Constraints**
+#### Constraints
+
 - `<OTA_PREFIX>` : Must contain at least one `_` (e.g. `PKX110_11.C`)
-- `<PrjNum>`     : Exactly 5 digits (e.g. `24821`)
-- `<snNum>`     : SN Number from phone
-- `<DUID>`       : 64-character SHA256 string (get from dialer code *#6776#)
+- `<PrjNum>` : Exactly 5 digits (e.g. `24821`)
+- `<snNum>` : SN Number from phone
+- `<DUID>` : 64-character SHA256 string (get from dialer code \*#6776#)
 - `[--debug 0/1]` : Get metadata for official downgrade process
 
-**Output example**
-```
+#### Output example
+
+```text
 Fetch Info:
 • Link: https://...
 • Changelog: ...
@@ -212,7 +232,8 @@ Fetch Info:
 • MD5: abcdef123456...
 ```
 
-### Usage of `downgrade_query_old.py` 
+### Usage of `downgrade_query_old.py`
+
 ```bash
 python downgrade_query.py <OTA_PREFIX> <PrjNum>
 
@@ -220,12 +241,14 @@ python downgrade_query.py <OTA_PREFIX> <PrjNum>
 python downgrade_query.py PKX110_11.C 24821
 ```
 
-**Constraints**
-- `<OTA_PREFIX>` : Must contain at least one `_` (e.g. `PKX110_11.C`)
-- `<PrjNum>`     : Exactly 5 digits (e.g. `24821`)
+#### Constraints
 
-**Output example**
-```
+- `<OTA_PREFIX>` : Must contain at least one `_` (e.g. `PKX110_11.C`)
+- `<PrjNum>` : Exactly 5 digits (e.g. `24821`)
+
+#### Output example
+
+```text
 Fetch Info:
 • Link: https://...
 • Changelog: ...
@@ -241,6 +264,7 @@ Fetch Info:
 Query tool using REALME Server to query for EDL ROM.
 
 ### Usage
+
 ```bash
 python realme_edl_query.py <VERSION_NAME> <REGION> <DATE>
 
@@ -248,8 +272,9 @@ python realme_edl_query.py <VERSION_NAME> <REGION> <DATE>
 python3 realme_edl_query.py "RMX3888_16.0.3.500(CN01)" CN 202601241320
 ```
 
-**Output example**
-```
+#### Output example
+
+```text
 Querying for RMX8899_16.0.3.532(CN01)
 
 Fetch Info:
@@ -262,12 +287,14 @@ Fetch Info:
 
 Query for specific version changelog
 
-**Constraints**  
-- `<OTA_PREFIX>`     `PJD110_11.F.39_2390`  
-- `<REGION>`         `cn` `cn_cmcc` `eu` `in` `sg` `ru` `tr` `th` `gl` `tw` `my` `vn` `id` `sa` `mea` `ph` `la` `br` `roe`
+#### Constraints
+
+- `<OTA_PREFIX>` `PJD110_11.F.39_2390`
+- `<REGION>` `cn` `cn_cmcc` `eu` `in` `sg` `ru` `tr` `th` `gl` `tw` `my` `vn` `id` `sa` `mea` `ph` `la` `br` `roe`
 - `[--pre 0/1]` : Get Testing Version / Testing devices changelogs
 
 ### Usage
+
 ```bash
 python3 changelog_query.py <OTA_VERSION> <REGION>
 
@@ -280,6 +307,7 @@ python3 changelog_query.py PLP110_11.A.40_0400 CN --pre 1
 **Note**: You are allow not to use full OTA Version, but needed two `_` at least(include Version & Version Code)
 
 ### Important Notes (2025–2026)
+
 - ColorOS 16 introduced strong anti-query restrictions (~Oct 2025). Use `--anti 1` + `taste` mode + base version (e.g. `11.A`) in `tomboy_pro.py` to bypass on many models.
 - Dynamic links from `downloadCheck?` usually expire in **10–30 minutes** — use `C16_transer.py` immediately after getting them.
 - `opex_query.py`, `sota_query.py`, `iot_query.py` and `downgrade_query.py` are **CN-only** at the moment.
