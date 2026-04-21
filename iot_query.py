@@ -6,12 +6,14 @@ Designed by Jerry Tse
 
 import argparse
 import base64
+import io
 import json
 import random
 import re
 import string
 import sys
 import time
+from contextlib import redirect_stdout
 from typing import Dict, Tuple
 
 import requests
@@ -152,7 +154,7 @@ def display_iot_result(decrypted_json):
     print(f"• Ota Version: {decrypted_json.get('new_version', 'N/A')}")
 
 
-def main(argv=None):
+def _main_impl(argv=None):
     parser = argparse.ArgumentParser(description="IoT Special OTA Query Tool")
     parser.add_argument("ota_prefix", help="OTA version prefix or model name")
     parser.add_argument(
@@ -202,7 +204,18 @@ def main(argv=None):
     return {"success": bool(results), "results": results}
 
 
+def main(argv=None):
+    output_buffer = io.StringIO()
+    with redirect_stdout(output_buffer):
+        result = _main_impl(argv)
+
+    result["output"] = output_buffer.getvalue()
+    return result
+
+
 if __name__ == "__main__":
-    output = main()
-    exit_code = 0 if output["success"] else 1
+    result = main()
+    if result.get("output"):
+        print(result["output"], end="")
+    exit_code = 0 if result["success"] else 1
     sys.exit(exit_code)

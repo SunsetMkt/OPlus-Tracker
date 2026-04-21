@@ -6,10 +6,12 @@ Designed by Jerry Tse
 
 import argparse
 import base64
+import io
 import json
 import os
 import sys
 import time
+from contextlib import redirect_stdout
 from typing import Dict, Optional
 
 import requests
@@ -69,7 +71,7 @@ def decrypt_aes_gcm(cipher_b64: str, iv_b64: str, key: bytes) -> Optional[bytes]
         return None
 
 
-def main(argv=None):
+def _main_impl(argv=None):
     parser = argparse.ArgumentParser(
         description="ColorOS Downgrade Query Tool",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -219,9 +221,20 @@ Example:
     return {"success": False, "packages": found_packages, "reason": "not_found"}
 
 
+def main(argv=None):
+    output_buffer = io.StringIO()
+    with redirect_stdout(output_buffer):
+        result = _main_impl(argv)
+
+    result["output"] = output_buffer.getvalue()
+    return result
+
+
 if __name__ == "__main__":
     try:
         result = main()
+        if result.get("output"):
+            print(result["output"], end="")
         sys.exit(0 if result.get("success") else 1)
     except KeyboardInterrupt:
         print("\n\n⚠️  Script interrupted by user")
