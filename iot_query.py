@@ -10,6 +10,7 @@ import json
 import random
 import re
 import string
+import sys
 import time
 from typing import Dict, Tuple
 
@@ -151,7 +152,7 @@ def display_iot_result(decrypted_json):
     print(f"• Ota Version: {decrypted_json.get('new_version', 'N/A')}")
 
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(description="IoT Special OTA Query Tool")
     parser.add_argument("ota_prefix", help="OTA version prefix or model name")
     parser.add_argument(
@@ -159,12 +160,13 @@ def main():
     )
     parser.add_argument("--model", help="Custom model override")
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     ota_input = args.ota_prefix.upper()
 
     is_simple = not bool(
         re.search(r"_\d{2}\.[A-Z]", ota_input) or ota_input.count("_") >= 3
     )
+    results = []
 
     if is_simple:
         suffixes = ["_11.A", "_11.C", "_11.F", "_11.H"]
@@ -177,6 +179,7 @@ def main():
 
             result = query_iot_server(full_version, model)
             if result:
+                results.append(result)
                 display_iot_result(result)
                 print()
             else:
@@ -193,10 +196,15 @@ def main():
 
         result = query_iot_server(full_version, model)
         if result:
+            results.append(result)
             display_iot_result(result)
         else:
             print("No Result")
 
+    return {"success": bool(results), "results": results}
+
 
 if __name__ == "__main__":
-    main()
+    output = main()
+    exit_code = 0 if output["success"] else 1
+    sys.exit(exit_code)
