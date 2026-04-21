@@ -20,7 +20,6 @@ def check_url(url: str) -> Optional[str]:
             return url
     except requests.RequestException:
         return None
-    return None
 
 
 def query_edl_link(version_name: str, region: str, date_prefix: str) -> Optional[str]:

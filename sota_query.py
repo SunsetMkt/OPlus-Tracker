@@ -451,11 +451,11 @@ def main(args) -> int:
 
 def parse_args(argv=None):
     """Parse command line arguments with validation and custom error handling"""
-    class ArgumentParserNoExit(argparse.ArgumentParser):
+    class RaisingArgumentParser(argparse.ArgumentParser):
         def error(self, message):
             raise ValueError(message)
 
-    parser = ArgumentParserNoExit(
+    parser = RaisingArgumentParser(
         description="SOTA APK Query Tool - All parameters are required",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""

@@ -472,11 +472,11 @@ def main(args) -> int:
 
 
 def parse_args(argv=None):
-    class ArgumentParserNoExit(argparse.ArgumentParser):
+    class RaisingArgumentParser(argparse.ArgumentParser):
         def error(self, message):
             raise ValueError(message)
 
-    parser = ArgumentParserNoExit(
+    parser = RaisingArgumentParser(
         description="SOTA APK Query Tool - Changelog only",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
