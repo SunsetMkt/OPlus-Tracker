@@ -17,7 +17,7 @@ REGION_CONFIG = OTA_REGION_CONFIG
 
 VALID_REGIONS = [r for r in REGION_CONFIG.keys() if r != "sg_host"]
 CHINA_REGIONS = ["cn", "cn_cmcc"]  # Use bullet prefix for Chinese regions
-DEFAULT_CHG_SUFFIX = "_197001010000"
+DEFAULT_CHANGELOG_SUFFIX = "_197001010000"
 
 
 def extract_url_from_link(link_str: str) -> str:
@@ -153,7 +153,7 @@ def query_changelog(version_prefix: str, region: str, pre_flag: int = None):
         config = REGION_CONFIG["sg_host"].copy()
         config.update(REGION_CONFIG[region])
 
-    full_version = adjusted_prefix + DEFAULT_CHG_SUFFIX
+    full_version = adjusted_prefix + DEFAULT_CHANGELOG_SUFFIX
     url = "https://" + config["host"] + "/descriptionInfo"
     headers = {
         "language": config["language"],
@@ -246,7 +246,9 @@ Example:
     )
     args = parser.parse_args()
 
-    print(f"\nQuerying update log for {args.ota_prefix.upper()}{DEFAULT_CHG_SUFFIX}\n")
+    print(
+        f"\nQuerying update log for {args.ota_prefix.upper()}{DEFAULT_CHANGELOG_SUFFIX}\n"
+    )
     try:
         result = query_changelog(args.ota_prefix, args.region, args.pre)
     except ValueError as e:

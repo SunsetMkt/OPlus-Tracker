@@ -233,8 +233,8 @@ def query_opex(
         except Exception as e:
             if attempt < max_retries - 1:
                 time.sleep(2 * (attempt + 1))
-            else:
-                return {"model": model, "error": str(e), "opex_list": []}
+                continue
+            return {"model": model, "error": str(e), "opex_list": []}
     return {"model": model, "error": "Max retries exceeded", "opex_list": []}
 
 

@@ -6,6 +6,7 @@ Designed by Jerry Tse
 
 import argparse
 import re
+import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import requests
@@ -89,4 +90,4 @@ Example:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    sys.exit(main())

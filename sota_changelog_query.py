@@ -427,7 +427,11 @@ def run_sota_changelog_query(brand: str, ota_version: str, coloros: str):
     update_result = execute_update_request(query_result, config)
     sota_version, modules_list = extract_apk_modules(update_result)
     if not modules_list:
-        return {"config": config, "sota_version": sota_version, "output_lines": ["No available SOTA Update"]}
+        return {
+            "config": config,
+            "sota_version": sota_version,
+            "output_lines": ["No available SOTA Update"],
+        }
     description_response = fetch_sota_description(modules_list, sota_version, config)
     lines = build_changelog_lines(sota_version, description_response)
     return {"config": config, "sota_version": sota_version, "output_lines": lines}
@@ -436,7 +440,7 @@ def run_sota_changelog_query(brand: str, ota_version: str, coloros: str):
 def build_changelog_lines(sota_version: str, description_response: Dict) -> List[str]:
     lines = []
     if not description_response:
-        return ["Not found sota changelog"]
+        return ["Not found SOTA changelog"]
 
     body_str = description_response.get("body")
     if body_str:

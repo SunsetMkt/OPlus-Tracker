@@ -10,6 +10,7 @@ import json
 import random
 import re
 import string
+import sys
 import time
 from typing import Dict, Tuple
 
@@ -218,4 +219,4 @@ def main():
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    sys.exit(main())

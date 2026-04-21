@@ -446,7 +446,7 @@ def process_response(response: requests.Response, aes_key: bytes) -> QueryResult
         return QueryResult(False, status, error=f"Processing failed: {str(e)}")
 
 
-def display_result(result: QueryResult):
+def display_result(result: QueryResult) -> bool:
     if result.success:
         print("\nFetch Info:")
         components = result.components
@@ -482,6 +482,7 @@ def display_result(result: QueryResult):
                 print(f"• Opex Version Name: {opex.version_name}")
                 if i < len(result.opex_list) - 1:
                     print()
+        return True
     else:
         if result.response_code == 2004:
             print("\nNo Result")
@@ -497,11 +498,13 @@ def display_result(result: QueryResult):
             print(f"\nError: {result.error}")
         else:
             print("\nUnknown Error")
+        return False
 
 
-def auto_complete_query(base_ota_prefix: str, config: QueryConfig) -> None:
+def auto_complete_query(base_ota_prefix: str, config: QueryConfig) -> bool:
     suffixes = ["_11.A", "_11.C", "_11.F", "_11.H", "_11.J"]
     last_success_fake = None
+    has_success = False
 
     if config.graynew == 1:
         for suffix in suffixes:
@@ -550,8 +553,8 @@ def auto_complete_query(base_ota_prefix: str, config: QueryConfig) -> None:
             final_cfg.pre = "0"
 
             result_final = query_update(final_cfg)
-            display_result(result_final)
-        return
+            has_success = display_result(result_final) or has_success
+        return has_success
 
     if config.anti == 1:
         config.mode = "taste"
@@ -629,7 +632,8 @@ def auto_complete_query(base_ota_prefix: str, config: QueryConfig) -> None:
             if fake != "N/A":
                 last_success_fake = fake
 
-        display_result(result)
+        has_success = display_result(result) or has_success
+    return has_success
 
 
 def parse_args():
@@ -691,7 +695,7 @@ def parse_args():
     return args
 
 
-def run_tomboy_query(args) -> None:
+def run_tomboy_query(args) -> bool:
     config = QueryConfig(
         ota_version=args.ota_prefix,
         model=args.model or "unknown",
@@ -723,8 +727,7 @@ def run_tomboy_query(args) -> None:
     )
 
     if not is_simple_version:
-        auto_complete_query(ota_upper, config)
-        return
+        return auto_complete_query(ota_upper, config)
 
     print(f"Querying {config.region.upper()} update")
     print(f"Device Model: {config.model}")
@@ -745,13 +748,12 @@ def run_tomboy_query(args) -> None:
         config.model += "IN"
         result = query_update(config)
 
-    display_result(result)
+    return display_result(result)
 
 
 def main():
     args = parse_args()
-    run_tomboy_query(args)
-    return 0
+    return 0 if run_tomboy_query(args) else 1
 
 
 if __name__ == "__main__":
