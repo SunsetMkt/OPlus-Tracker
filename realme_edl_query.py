@@ -18,7 +18,7 @@ def check_url(url: str) -> Optional[str]:
         resp = requests.head(url, timeout=2, allow_redirects=True)
         if resp.status_code == 200:
             return url
-    except Exception:
+    except requests.RequestException:
         return None
     return None
 

@@ -163,9 +163,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
     ota_input = args.ota_prefix.upper()
 
-    is_simple = not bool(
-        re.search(r"_\d{2}\.[A-Z]", ota_input) or ota_input.count("_") >= 3
-    )
+    is_simple = not (re.search(r"_\d{2}\.[A-Z]", ota_input) or ota_input.count("_") >= 3)
     results = []
 
     if is_simple:

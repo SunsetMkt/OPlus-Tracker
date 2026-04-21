@@ -190,8 +190,8 @@ def execute_query_request(
         )
         decrypted_json = json.loads(decrypted_bytes.decode())
         return decrypted_json, aes_key, iv
-    except Exception:
-        print("[!] Query error, something was wrong in arguments")
+    except Exception as e:
+        print(f"[!] Query error: {e}")
         return None, None, None
 
 
