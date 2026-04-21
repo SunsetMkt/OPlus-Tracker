@@ -73,8 +73,8 @@ def parse_brand(brand_str: str) -> str:
     elif brand_lower == "realme":
         return "Realme"
     else:
-        sys.exit(
-            f"\nError: Invalid brand '{brand_str}'. Supported: OPPO, OnePlus, Realme"
+        raise ValueError(
+            f"Invalid brand '{brand_str}'. Supported: OPPO, OnePlus, Realme"
         )
 
 
@@ -158,7 +158,7 @@ def build_headers(
 
 def query_opex(
     ota_version: str, os_version: str, brand: str, android_version: str
-) -> None:
+) -> bool:
     model = extract_model_from_ota_version(ota_version)
 
     # Cosmetic: Add space between ColorOS and version number
@@ -226,7 +226,7 @@ def query_opex(
                     or "Unknown Error"
                 )
                 print(f"\nAPI Error (Code {code}): {msg}")
-                return
+                return False
 
             # Decrypt response
             encrypted_body = resp_json
@@ -239,13 +239,15 @@ def query_opex(
 
             # Parse and print results
             process_result(body)
-            return  # Exit function on success
+            return True
 
         except Exception as e:
             if attempt < max_retries - 1:
                 time.sleep(2 * (attempt + 1))
             else:
-                return
+                return False
+
+    return False
 
 
 def process_result(body: Dict):
@@ -289,7 +291,7 @@ def process_result(body: Dict):
         print("\nNo Opex updates found.")
 
 
-def main():
+def main(argv=None) -> int:
     example_text = """Example:
   python3 opex_query.py PJZ110_11.C.84_1840_202601060309 --info 16,oneplus"""
 
@@ -307,28 +309,34 @@ def main():
     )
 
     # Critical change: Print help doc (including Example) and exit if no args provided
-    if len(sys.argv) == 1:
-        parser.print_help()
-        sys.exit(1)
+    argv = sys.argv[1:] if argv is None else argv
 
-    args = parser.parse_args()
+    if not argv:
+        parser.print_help()
+        return 1
+
+    args = parser.parse_args(argv)
 
     parts = args.info.split(",")
     if len(parts) != 2:
         print("Error: --info must be in format 'osVersion,brand'")
         print(example_text)
-        sys.exit(1)
+        return 1
 
     os_ver_raw, brand_raw = parts
     os_version = parse_os_version(os_ver_raw)
-    brand = parse_brand(brand_raw)
+    try:
+        brand = parse_brand(brand_raw)
+    except ValueError as e:
+        print(f"\nError: {e}")
+        return 1
     android_version = "Android" + os_ver_raw
 
     if args.ota_version.count("_") < 3:
         print("\nWarning: Opex query typically requires a complete OTA version string.")
 
-    query_opex(args.ota_version, os_version, brand, android_version)
+    return 0 if query_opex(args.ota_version, os_version, brand, android_version) else 1
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
