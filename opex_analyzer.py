@@ -4,6 +4,7 @@ opex analyzer: Reads opex.cfg from a remote ZIP file without downloading the ent
 Designed by Jerry Tse
 """
 
+import argparse
 import json
 import sys
 from remotezip import RemoteZip
@@ -74,8 +75,19 @@ def analyze_opex_from_url(url: str):
         sys.exit(1)
 
 def main():
-    print("=== opex analyzer ===\n")
-    url = input("Opex Link: ").strip()
+    parser = argparse.ArgumentParser(
+        description='Opex Analyzer Tool',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Example:
+  python3 %(prog)s <URL>
+"""
+    )
+    parser.add_argument('url', help='URL to resolve')
+    args = parser.parse_args()
+
+    url = args.url
+    
     if not url:
         print("Error: link cannot be empty", file=sys.stderr)
         sys.exit(1)
