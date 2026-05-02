@@ -228,9 +228,13 @@ def query_changelog(version_prefix: str, region: str, pre_flag: int = None):
             "full_version": full_version,
             "error": "'body' content is not valid JSON.",
         }
+
+    version_name = inner_data.get("versionName")
+
     return {
         "ok": True,
         "full_version": full_version,
+        "version_name": version_name,
         "lines": format_output(inner_data, region),
     }
 
@@ -266,7 +270,7 @@ Example:
     args = parser.parse_args()
 
     print(
-        f"\nQuerying update log for {args.ota_prefix.upper()}{DEFAULT_CHANGELOG_SUFFIX}\n"
+        f"Querying update log for {args.ota_prefix.upper()}{DEFAULT_CHANGELOG_SUFFIX}\n"
     )
     try:
         result = query_changelog(args.ota_prefix, args.region, args.pre)
@@ -277,6 +281,10 @@ Example:
     if not result["ok"]:
         print(f"Error: {result['error']}")
         return 1
+
+    if result.get("version_name"):
+        print(f"ColorOS Version: {result['version_name']}\n")
+
     if result.get("no_changelog"):
         print("No changelog in Server")
         return 0
