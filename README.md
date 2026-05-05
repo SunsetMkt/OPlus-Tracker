@@ -18,12 +18,14 @@ Current scripts:
 - `C16_transer.py` → resolves dynamic download links (ColorOS 16+)
 - `tomboy_pro.py` → main OTA query tool (full / delta / gray / preview / anti-query bypass)
 - `opex_query.py` → dedicated OPEX query (CN only)
+- `opex_analyzer.py` → analyse what OPEX fixed for
 - `sota_query.py` → SOTA (Software OTA / modular APK) query (CN only yet)
 - `sota_changelog_query.py` → SOTA (Software OTA / modular APK) Changelog query (CN only yet)
 - `iot_query.py` → legacy & IoT server query (CN only)
 - `downgrade_query.py` → query official downgrade packages (CN only)
 - `realme_edl_query.py` → query official EDL packages for Realme
 - `changelog_query.py` → query specific version changelog
+- `desc_query.py` → query specific version changelog url
 - `config.py` → configuration for public keys, server addresses, and API endpoints.
 
 ## `C16_transer.py`
@@ -133,6 +135,16 @@ python opex_query.py RMX5200_11.A.63_... --info 16,realme
 ```
 
 **Note**: Requires complete OTA version string (at least 3 `_` segments).
+
+## `opex_analyzer.py`
+
+Tool for analyse whay opex package fixed
+
+### Usage
+
+```bash
+python opex_analyzer.py <URL>
+```
 
 ## `sota_query.py`
 
@@ -305,6 +317,28 @@ python changelog_query.py PLP110_11.A.40_0400 cn --pre 1
 ```
 
 **Note**: You are allow not to use full OTA Version, but needed two `_` at least(include Version & Version Code)
+
+## `desc_query.py`
+
+Query for specific version changelog url
+
+#### Constraints
+
+- `<OTA_PREFIX>` `PJD110_11.F.39_2390`
+- `<REGION>` `cn` `cn_cmcc` `eu` `in` `sg` `ru` `tr` `th` `gl` `tw` `my` `vn` `id` `sa` `mea` `ph` `la` `br` `roe`
+
+### Usage
+
+```bash
+python desc_query.py <OTA_VERSION> <REGION>
+
+# Examples
+python desc_query.py PJD110_11.F.39_2390 cn
+
+python desc_query.py PLP110PRE_11.A.40_0400 cn
+```
+
+**Note**: You are allow to use full OTA Version, but also supported two `_` at least(include Version & Version Code)
 
 ### Important Notes (2025–2026)
 
